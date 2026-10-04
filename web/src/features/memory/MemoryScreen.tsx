@@ -9,6 +9,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import { listMemory, searchMemory, askMemory } from './memoryApi';
 import type { AskResponse, MemoryDocument } from '../../types/index';
+import { itemText, type ListItem } from '../../lib/itemText';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Ask zone
@@ -262,12 +263,12 @@ function MemoryCard({ doc }: { doc: MemoryDocument }) {
   );
 }
 
-function DetailList({ title, items }: { title: string; items: string[] }) {
+function DetailList({ title, items }: { title: string; items: ListItem[] }) {
   return (
     <div>
       <p className="text-textMuted text-xs font-medium uppercase tracking-wide mb-1">{title}</p>
       <ul className="list-disc list-inside text-textSecondary space-y-0.5">
-        {items.map((item, i) => <li key={i}>{item}</li>)}
+        {items.map((item, i) => <li key={i}>{itemText(item)}</li>)}
       </ul>
     </div>
   );
