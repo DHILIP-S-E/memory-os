@@ -7,9 +7,11 @@ subscribe it to the notifications topic with a filter policy on the user's id,
 so a publish tagged with user_id reaches only that user's devices.
 """
 
+import json
 import logging
 
 import boto3
+from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -26,8 +28,6 @@ class DeviceRegistration(BaseModel):
 
 
 def filter_policy(user_id: str) -> str:
-    import json
-
     return json.dumps({"user_id": [user_id]})
 
 
@@ -56,3 +56,37 @@ async def register_device(
         logger.exception("Device registration failed")
         raise HTTPException(status_code=502, detail="Could not register device")
     return {"registered": True}
+
+
+class EmailRegistration(BaseModel):
+    email: str
+
+
+@router.post("/email")
+async def register_email(
+    body: EmailRegistration,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Email me my reminders: a cloud alarm channel that needs no mobile push setup.
+
+    SNS emails a confirmation link first (nothing is sent until the address is
+    confirmed), and the subscription is filtered to this user's reminders only."""
+    if not settings.notification_topic_arn:
+        raise HTTPException(status_code=503, detail="Reminder emails are not configured")
+    try:
+        email = validate_email(body.email.strip(), check_deliverability=False).normalized
+    except EmailNotValidError:
+        raise HTTPException(status_code=422, detail="Enter a valid email address")
+    try:
+        boto3.client("sns", region_name=settings.aws_region).subscribe(
+            TopicArn=settings.notification_topic_arn,
+            Protocol="email",
+            Endpoint=email,
+            Attributes={"FilterPolicy": filter_policy(user_id)},
+            ReturnSubscriptionArn=True,
+        )
+    except Exception:
+        logger.exception("Email subscription failed")
+        raise HTTPException(status_code=502, detail="Could not set up reminder emails")
+    return {"status": "pending_confirmation", "email": email,
+            "detail": "Check your inbox and click the confirmation link to start receiving reminders."}
