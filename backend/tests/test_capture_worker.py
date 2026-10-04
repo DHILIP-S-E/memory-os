@@ -50,6 +50,9 @@ class FakeConn:
     def rollback(self):
         pass
 
+    def close(self):
+        pass
+
     def updates(self):
         return [(s, p) for s, p in self.statements if s.strip().upper().startswith("UPDATE")]
 
