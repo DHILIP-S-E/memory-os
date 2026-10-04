@@ -12,7 +12,8 @@ import json
 import logging
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import boto3
 import psycopg2
@@ -32,12 +33,29 @@ def in_quiet_hours(hour: int, start: int = 22, end: int = 7) -> bool:
     return start <= hour < end if start < end else (hour >= start or hour < end)
 
 
-def should_suppress(priority: str, fire_at: datetime, utc_offset_minutes: int = 0) -> bool:
-    """High-priority reminders always ring; others respect quiet hours."""
-    if priority == "high":
+def should_suppress(priority: str, fire_at: datetime, timezone_name: str | None = None) -> bool:
+    """High-priority reminders always ring; others respect quiet hours in the user's
+    own timezone. Without a real timezone ("UTC" is the app's default, not a place) we do NOT
+    suppress: quiet hours measured in the wrong zone would silently drop daytime reminders."""
+    if priority == "high" or not timezone_name or timezone_name.upper() == "UTC":
         return False
-    local = fire_at.astimezone(timezone(timedelta(minutes=utc_offset_minutes)))
+    try:
+        local = fire_at.astimezone(ZoneInfo(timezone_name))
+    except (ZoneInfoNotFoundError, ValueError):
+        return False
     return in_quiet_hours(local.hour)
+
+
+def build_message(title: str) -> dict:
+    """SNS message body (MessageStructure=json): only protocol keys are allowed, and
+    `default` is required. Email and any protocol without its own key use `default`."""
+    return {"default": title + "\n\nOpen Personal Memory OS to snooze or complete it."}
+
+
+def email_subject(title: str) -> str:
+    """SNS email subjects: ASCII only, no line breaks, at most 100 characters."""
+    clean = "".join(ch for ch in f"Reminder: {title}" if 32 <= ord(ch) < 127)
+    return clean[:100]
 
 
 def _record(conn, reminder_id, user_id, status, fire_at, message_id=None, error=None):
@@ -73,13 +91,15 @@ def handler(event, _context):
             logger.info("Condition met, skipping %s", reminder_id)
             _record(conn, reminder_id, user_id, "cancelled", fire_at)
             return {"skipped": True}
-        if should_suppress(event.get("priority", "medium"), fire_at):
+        if should_suppress(event.get("priority", "medium"), fire_at, event.get("timezone")):
             logger.info("Quiet hours: suppressed push for %s", reminder_id)
+            _record(conn, reminder_id, user_id, "cancelled", fire_at, error="quiet hours")
             return {"suppressed": True}
         try:
             resp = _sns.publish(
                 TopicArn=os.environ["NOTIFICATION_TOPIC_ARN"],
-                Message=json.dumps({"default": event["title"], "reminder_id": reminder_id}),
+                Subject=email_subject(event["title"]),
+                Message=json.dumps(build_message(event["title"])),
                 MessageStructure="json",
                 MessageAttributes={"user_id": {"DataType": "String", "StringValue": user_id}},
             )
