@@ -18,6 +18,7 @@ import {
 } from './eventsApi';
 import { listCaptures } from '../capture/capturesApi';
 import type { Event, EventUpdate, DeadlineIn, MemoryDocument, Capture } from '../../types/index';
+import { itemText, type ListItem } from '../../lib/itemText';
 
 type Tab = 'overview' | 'captures' | 'deadlines' | 'reminders' | 'summary';
 
@@ -688,7 +689,7 @@ function SummaryTab({ event }: { event: Event }) {
   );
 }
 
-function SummaryList({ title, items, icon }: { title: string; items: string[]; icon?: string }) {
+function SummaryList({ title, items, icon }: { title: string; items: ListItem[]; icon?: string }) {
   return (
     <div>
       <h3 className="text-textSecondary text-xs font-medium uppercase mb-2">{title}</h3>
@@ -696,7 +697,7 @@ function SummaryList({ title, items, icon }: { title: string; items: string[]; i
         {items.map((item, i) => (
           <li key={i} className="text-textPrimary text-sm flex gap-2">
             <span className="text-textMuted shrink-0">{icon ?? '•'}</span>
-            <span>{item}</span>
+            <span>{itemText(item)}</span>
           </li>
         ))}
       </ul>
