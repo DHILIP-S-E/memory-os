@@ -106,6 +106,7 @@ def schedule_reminder(
                     "priority": priority,
                     "fire_at": _utc(scheduled_at).isoformat(),
                     "depends_on_id": depends_on_id,
+                    "timezone": timezone_name,
                     "recurring": True,
                 }),
             },
@@ -129,6 +130,7 @@ def schedule_reminder(
                     "priority": priority,
                     "fire_at": fire_at.isoformat(),
                     "depends_on_id": depends_on_id,
+                    "timezone": timezone_name,
                 }),
             },
         )
