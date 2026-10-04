@@ -1,3 +1,4 @@
+import type { ListItem } from '../lib/itemText';
 // ---------------------------------------------------------------------------
 // Reminder
 // ---------------------------------------------------------------------------
@@ -202,8 +203,8 @@ export interface MemoryDocument {
   important_people: string[];
   resources: string[];
   links: string[];
-  action_items: string[];
-  deadlines: string[];
+  action_items: ListItem[];
+  deadlines: ListItem[];
   decisions: string[];
   event_date: string;
   created_at: string;
