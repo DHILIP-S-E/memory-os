@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     database_url: str = ""      # local dev; on AWS use db_secret_arn
     db_secret_arn: str = ""
+    database_url_param: str = ""    # SSM SecureString holding the URL (Lambda workers)
     aws_region: str = "us-east-1"
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
