@@ -26,6 +26,8 @@ import psycopg2
 
 from app.db_url import sync_database_url
 from app.services.action_items import normalize_actions
+from app.services import media_ai
+from app.services.capture_ai import build_prompt, parse_summary
 from app.services.converse import build_request, extract_text
 
 logger = logging.getLogger()
@@ -98,25 +100,31 @@ def text_from_result(result: dict) -> str:
     return "\n".join(p for p in parts if p.strip())
 
 
+def _guardrail():
+    return {
+        "guardrail_id": os.environ.get("GUARDRAIL_ID", ""),
+        "guardrail_version": os.environ.get("GUARDRAIL_VERSION", ""),
+    }
+
+
 def summarise(text: str) -> dict:
-    today = datetime.now(timezone.utc).date().isoformat()
-    prompt = (
-        "Summarise this captured content. Return ONLY JSON: "
-        '{"summary": str, "topics": [str], "key_points": [str], '
-        '"actions": [{"title": str, "due_at": "YYYY-MM-DD or null"}]}\n'
-        "actions are things the speaker says they must do in the future. "
-        f"Today is {today}; resolve relative or partial dates against it, "
-        "and use null when no date is stated. Never invent a date.\n\n"
-        + text[:8000]
-    )
     request = build_request(
-        os.environ["BEDROCK_MODEL_FAST"], prompt, max_tokens=800,
-        guardrail_id=os.environ.get("GUARDRAIL_ID", ""),
-        guardrail_version=os.environ.get("GUARDRAIL_VERSION", ""),
+        os.environ["BEDROCK_MODEL_FAST"], build_prompt(text), max_tokens=800, **_guardrail()
     )
-    raw = extract_text(boto3.client("bedrock-runtime").converse(**request))
-    match = re.search(r"\{.*\}", raw, re.DOTALL)
-    return json.loads(match.group()) if match else {"summary": raw[:500]}
+    return parse_summary(extract_text(boto3.client("bedrock-runtime").converse(**request)))
+
+
+def summarise_media(bucket: str, key: str, capture_type: str) -> dict:
+    """Photo or document: let Nova read it directly. Raises UnsupportedMedia (with a
+    user-safe reason) for unknown types and files over the model's size limit."""
+    kind, fmt = media_ai.detect(key, capture_type)
+    s3 = boto3.client("s3")
+    media_ai.check_size(kind, s3.head_object(Bucket=bucket, Key=key)["ContentLength"])  # before downloading
+    data = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+    request = media_ai.build_request(
+        os.environ["BEDROCK_MODEL_FAST"], kind, fmt, data, media_ai.media_prompt(kind), **_guardrail()
+    )
+    return parse_summary(extract_text(boto3.client("bedrock-runtime").converse(**request)))
 
 
 def _start_extraction(capture_type: str, bucket: str, key: str) -> None:
@@ -130,13 +138,17 @@ def _start_extraction(capture_type: str, bucket: str, key: str) -> None:
         )
         raise AsyncJobStarted(key)
     if capture_type == "voice":
-        boto3.client("transcribe").start_transcription_job(
-            TranscriptionJobName=f"capture-{os.path.basename(key).split('.')[0]}",
-            IdentifyLanguage=True,
-            Media={"MediaFileUri": f"s3://{bucket}/{key}"},
-            OutputBucketName=bucket,
-            OutputKey=f"{PROCESSED_PREFIX}{key}.json",
-        )
+        transcribe = boto3.client("transcribe")
+        try:
+            transcribe.start_transcription_job(
+                TranscriptionJobName=f"capture-{os.path.basename(key).split('.')[0]}",
+                IdentifyLanguage=True,
+                Media={"MediaFileUri": f"s3://{bucket}/{key}"},
+                OutputBucketName=bucket,
+                OutputKey=f"{PROCESSED_PREFIX}{key}.json",
+            )
+        except transcribe.exceptions.ConflictException:
+            pass  # a retried message: the job is already running
         raise AsyncJobStarted(key)
 
 
@@ -156,8 +168,7 @@ def _set_status(conn, capture_id: str, status: str) -> None:
     conn.commit()
 
 
-def _store_result(conn, capture_id: str, text: str, transcript: bool) -> None:
-    result = summarise(text) if text.strip() else {"summary": ""}
+def _store_summary(conn, capture_id: str, result: dict, transcript_text: str | None = None) -> None:
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE captures SET processing_status='processed', ai_summary=%s, ai_topics=%s, "
@@ -168,9 +179,24 @@ def _store_result(conn, capture_id: str, text: str, transcript: bool) -> None:
                 json.dumps(result.get("topics", [])),
                 json.dumps(result.get("key_points", [])),
                 json.dumps(normalize_actions(result.get("actions"))),
-                text if transcript else None,
+                transcript_text,
                 capture_id,
             ),
+        )
+    conn.commit()
+
+
+def _store_result(conn, capture_id: str, text: str, transcript: bool) -> None:
+    result = summarise(text) if text.strip() else {"summary": ""}
+    _store_summary(conn, capture_id, result, text if transcript else None)
+
+
+def _store_failure(conn, capture_id: str, reason: str) -> None:
+    """Failed, but say why: the reason shows in the app instead of a silent spinner."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE captures SET processing_status='failed', ai_summary=%s, updated_at=now() WHERE id=%s",
+            (f"Could not analyse this file: {reason}", capture_id),
         )
     conn.commit()
 
@@ -207,6 +233,12 @@ def _process_new(conn, bucket: str, key: str) -> None:
     _set_status(conn, capture_id, "processing")
     text = _stored_text(conn, capture_id)
     if not text:
+        if parts["type"] in ("photo", "document") and not os.environ.get("BDA_PROJECT_ARN"):
+            try:
+                _store_summary(conn, capture_id, summarise_media(bucket, key, parts["type"]))
+            except media_ai.UnsupportedMedia as exc:
+                _store_failure(conn, capture_id, str(exc))
+            return
         _start_extraction(parts["type"], bucket, key)  # raises AsyncJobStarted
     _store_result(conn, capture_id, text, transcript=False)
 
