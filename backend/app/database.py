@@ -4,7 +4,7 @@ from app.config import settings
 from app.db_url import resolve_urls
 
 ASYNC_DATABASE_URL, SYNC_DATABASE_URL = resolve_urls(
-    settings.database_url, settings.db_secret_arn, settings.aws_region
+    settings.database_url, settings.db_secret_arn, settings.aws_region, settings.database_url_param
 )
 
 
