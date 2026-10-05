@@ -46,6 +46,11 @@ class AsyncJobStarted(Exception):
     """An async extraction job was started; a later result message finishes the capture."""
 
 
+class NotRegisteredYet(Exception):
+    """The file reached S3 before the app registered it in the database (slow or offline
+    sync). Raising lets SQS redeliver the message instead of losing the result."""
+
+
 def parse_s3_key(key: str) -> dict | None:
     """users/{user}/events/{event}/{type}/{id}.ext -> parts; None if not a capture key."""
     match = _KEY_RE.match(key)
@@ -159,13 +164,16 @@ def _stored_text(conn, capture_id: str) -> str:
     return row[0] if row and row[0] else ""
 
 
-def _set_status(conn, capture_id: str, status: str) -> None:
+def _set_status(conn, capture_id: str, status: str) -> bool:
+    """Returns False when there is no such capture row (yet)."""
     with conn.cursor() as cur:
         cur.execute(
             "UPDATE captures SET processing_status=%s, updated_at=now() WHERE id=%s",
             (status, capture_id),
         )
+        found = cur.rowcount > 0
     conn.commit()
+    return found
 
 
 def _store_summary(conn, capture_id: str, result: dict, transcript_text: str | None = None) -> None:
@@ -230,7 +238,8 @@ def _process_new(conn, bucket: str, key: str) -> None:
         logger.info("Ignoring non-capture key %s", key)
         return
     capture_id = parts["id"]
-    _set_status(conn, capture_id, "processing")
+    if not _set_status(conn, capture_id, "processing"):
+        raise NotRegisteredYet(capture_id)
     text = _stored_text(conn, capture_id)
     if not text:
         if parts["type"] in ("photo", "document") and not os.environ.get("BDA_PROJECT_ARN"):
