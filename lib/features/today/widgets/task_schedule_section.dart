@@ -212,7 +212,13 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
 
         // Timeline items list
         if (dateEvents.isEmpty)
-          _buildSampleScheduleTimeline()
+          Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Text(
+            'Nothing scheduled today.',
+            style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
+          ),
+        )
         else
           ...dateEvents.map((e) => _buildEventTimelineItem(e)),
       ],
@@ -395,159 +401,6 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF9333EA),
                               ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSampleScheduleTimeline() {
-    return Column(
-      children: [
-        _buildSampleTimelineRow(
-          time: '9:00\nAM',
-          title: 'Meeting with Client',
-          subtitle: 'Client meeting to review project progress, align on goals, and plan upcoming tasks',
-          isMeet: true,
-        ),
-        _buildSampleTimelineRow(
-          time: '11:00\nAM',
-          title: 'Next Month Sprint Design',
-          subtitle: '11:10 AM - 01:30 PM • Design sync & review',
-          isMeet: false,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSampleTimelineRow({
-    required String time,
-    required String title,
-    required String subtitle,
-    required bool isMeet,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 54,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF18181B),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                Container(
-                  width: 1.5,
-                  height: 48,
-                  margin: const EdgeInsets.only(left: 3.25),
-                  color: const Color(0xFFE4E4E7),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFF1F2F6), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF18181B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF71717A),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildMiniAvatarStack(),
-                      if (isMeet)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF2563EB),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.videocam_rounded, size: 14, color: Colors.white),
-                              SizedBox(width: 4),
-                              Text(
-                                'Meet',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF3E8FF),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Text(
-                            'In Progress',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF9333EA),
                             ),
                           ),
                         ),
