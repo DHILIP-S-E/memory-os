@@ -78,7 +78,8 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final displayName = user?.displayName ?? 'Olivia Reed';
+    final name = user?.displayName?.trim() ?? '';
+    final displayName = name.isNotEmpty ? name : (user?.email.split('@').first ?? '');
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -233,9 +234,9 @@ class _TodayScreenState extends State<TodayScreen> {
                           final pending = total - completed;
 
                           return TodayProgressCard(
-                            totalTasks: total > 0 ? total : 12,
-                            completedTasks: total > 0 ? completed : 8,
-                            pendingTasks: total > 0 ? pending : 4,
+                            totalTasks: total,
+                            completedTasks: completed,
+                            pendingTasks: pending,
                           );
                         },
                       ),
@@ -280,7 +281,7 @@ class _TodayScreenState extends State<TodayScreen> {
 
               const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-              // Filter Tabs: [4 To Do], [2 In Progress], [3 Done], [All]
+              // Filter tabs, with the real counts
               SliverToBoxAdapter(
                 child: Consumer<ReminderProvider>(
                   builder: (context, provider, _) {
@@ -297,17 +298,17 @@ class _TodayScreenState extends State<TodayScreen> {
                         children: [
                           _buildFilterPill(
                             id: 'todo',
-                            label: '${todoCount > 0 ? todoCount : 4}  To Do',
+                            label: '$todoCount  To Do',
                           ),
                           const SizedBox(width: 8),
                           _buildFilterPill(
                             id: 'in_progress',
-                            label: '${inProgressCount > 0 ? inProgressCount : 2}  In Progress',
+                            label: '$inProgressCount  Overdue',
                           ),
                           const SizedBox(width: 8),
                           _buildFilterPill(
                             id: 'completed',
-                            label: '${completedCount > 0 ? completedCount : 3}  Done',
+                            label: '$completedCount  Done',
                           ),
                           const SizedBox(width: 8),
                           _buildFilterPill(
