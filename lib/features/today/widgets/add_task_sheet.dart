@@ -40,7 +40,6 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
   TimeOfDay _selectedTime = TimeOfDay.now();
   ReminderPriority _priority = ReminderPriority.high;
   String _selectedProject = 'Website Redesign';
-  final List<String> _tags = ['Design', 'UI/UX', 'Work'];
   bool _isSaving = false;
 
   @override
@@ -316,74 +315,6 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                         const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF71717A)),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Tags
-                  const Text(
-                    'Tags',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF18181B)),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ..._tags.map((t) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEDE9FE),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  t,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF7C3AED),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                GestureDetector(
-                                  onTap: () => setState(() => _tags.remove(t)),
-                                  child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF7C3AED)),
-                                ),
-                              ],
-                            ),
-                          )),
-                      GestureDetector(
-                        onTap: () {
-                          // Quick add tag
-                          setState(() => _tags.add('Sprint'));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFE4E4E7)),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.add_rounded, size: 14, color: Color(0xFF71717A)),
-                              SizedBox(width: 4),
-                              Text(
-                                'Add',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF71717A),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 28),
 
