@@ -340,23 +340,13 @@ class _TodayScreenState extends State<TodayScreen> {
                   }
 
                   if (displayList.isEmpty) {
-                    // Show a sample task matching Screenshot 2 design
                     return SliverToBoxAdapter(
-                      child: TodayTaskCard(
-                        reminder: Reminder(
-                          id: 'sample_landing',
-                          userId: 'user',
-                          title: 'Design Landing page',
-                          description: 'Complete high-fidelity mockups for marketing launch',
-                          reminderType: ReminderType.time,
-                          scheduledAt: DateTime.now().copyWith(hour: 10, minute: 30),
-                          priority: ReminderPriority.high,
-                          status: ReminderStatus.active,
-                          createdAt: DateTime.now(),
-                          updatedAt: DateTime.now(),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        child: Text(
+                          'No tasks for this view yet. Add a reminder to see it here.',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
                         ),
-                        onComplete: () {},
-                        onTap: () => context.push(AppRoutes.reminders),
                       ),
                     );
                   }
