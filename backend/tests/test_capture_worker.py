@@ -32,14 +32,15 @@ class FakeCursor:
 
     def execute(self, sql, params=()):
         self.conn.statements.append((sql, params))
+        self.rowcount = self.conn.rows_affected
 
     def fetchone(self):
         return self.conn.row
 
 
 class FakeConn:
-    def __init__(self, row=None):
-        self.statements, self.row, self.commits = [], row, 0
+    def __init__(self, row=None, rows_affected=1):
+        self.statements, self.row, self.commits, self.rows_affected = [], row, 0, rows_affected
 
     def cursor(self):
         return FakeCursor(self)
@@ -165,3 +166,20 @@ def test_the_same_prompt_is_used_for_text_and_media(aws):
     w.process_key(conn, "bucket", PHOTO)
     text_block = aws["bedrock-runtime"].requests[0]["messages"][0]["content"][1]["text"]
     assert "Never invent a date" in text_block and "photo" in text_block
+
+
+def test_a_file_that_arrives_before_its_row_is_retried_not_lost(aws):
+    conn = FakeConn(row=(None,), rows_affected=0)  # app has not registered the capture yet
+    with pytest.raises(w.NotRegisteredYet):
+        w._process_new(conn, "bucket", PHOTO)
+    assert aws["bedrock-runtime"].requests == []  # nothing was analysed and thrown away
+
+
+def test_the_handler_reports_it_as_a_failed_item_so_sqs_redelivers(aws, monkeypatch):
+    body = json.dumps({"detail": {"object": {"key": PHOTO}}})
+    conn = FakeConn(row=(None,), rows_affected=0)
+    monkeypatch.setattr(w.psycopg2, "connect", lambda url: conn)
+    monkeypatch.setattr(w, "sync_database_url", lambda: "postgresql://x")
+    monkeypatch.setenv("CAPTURE_BUCKET", "bucket")
+    out = w.handler({"Records": [{"messageId": "m1", "body": body}]}, None)
+    assert out == {"batchItemFailures": [{"itemIdentifier": "m1"}]}
