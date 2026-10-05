@@ -21,7 +21,6 @@ class TaskScheduleSection extends StatefulWidget {
 
 class _TaskScheduleSectionState extends State<TaskScheduleSection> {
   late DateTime _selectedDate;
-  String _selectedCategory = 'All';
 
   @override
   void initState() {
@@ -162,50 +161,16 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
         ),
         const SizedBox(height: 16),
 
-        // Category pills: All, Work, Personal
+        // Timeline subheader: the selected day
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              _buildCategoryPill('All', null),
-              const SizedBox(width: 8),
-              _buildCategoryPill('Work', Icons.work_outline_rounded),
-              const SizedBox(width: 8),
-              _buildCategoryPill('Personal', Icons.person_outline_rounded),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-
-        // Timeline Subheader
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.wb_sunny_outlined, size: 14, color: Color(0xFFF59E0B)),
-                  SizedBox(width: 6),
-                  Text(
-                    'Morning',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF18181B),
-                    ),
-                  ),
-                ],
-              ),
-              Text(
-                'Today',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF71717A),
-                ),
-              ),
-            ],
+          child: Text(
+            DateFormat('EEEE, d MMMM').format(_selectedDate),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF18181B),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -222,45 +187,6 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
         else
           ...dateEvents.map((e) => _buildEventTimelineItem(e)),
       ],
-    );
-  }
-
-  Widget _buildCategoryPill(String category, IconData? icon) {
-    final isSelected = _selectedCategory == category;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = category),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF18181B) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: isSelected
-              ? null
-              : Border.all(color: const Color(0xFFE4E4E7), width: 1.2),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 14,
-                color: isSelected ? Colors.white : const Color(0xFF71717A),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              category,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : const Color(0xFF18181B),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -349,7 +275,7 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildMiniAvatarStack(),
+                      const SizedBox.shrink(),
                       if (hasUrl)
                         InkWell(
                           onTap: () async {
@@ -370,10 +296,10 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.videocam_rounded, size: 14, color: Colors.white),
+                                Icon(Icons.link_rounded, size: 14, color: Colors.white),
                                 SizedBox(width: 4),
                                 Text(
-                                  'Meet',
+                                  'Open link',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
@@ -395,7 +321,7 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
-                              'In Progress',
+                              'Details',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -415,64 +341,4 @@ class _TaskScheduleSectionState extends State<TaskScheduleSection> {
     );
   }
 
-  Widget _buildMiniAvatarStack() {
-    return SizedBox(
-      width: 52,
-      height: 24,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            child: _buildAvatar(const Color(0xFFF59E0B), 'J'),
-          ),
-          Positioned(
-            left: 14,
-            child: _buildAvatar(const Color(0xFF10B981), 'M'),
-          ),
-          Positioned(
-            left: 28,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFF18181B),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                '+4',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAvatar(Color color, String letter) {
-    return Container(
-      width: 24,
-      height: 24,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.5),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        letter,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
 }
