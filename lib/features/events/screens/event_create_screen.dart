@@ -248,7 +248,7 @@ class _EventCreateScreenState extends State<EventCreateScreen>
             controller: _titleController,
             autofocus: true,
             style: AppTextStyles.bodyLarge,
-            decoration: const InputDecoration(hintText: 'AWS Hackathon 2026'),
+            decoration: const InputDecoration(hintText: 'Event name'),
           ),
           const SizedBox(height: 16),
           _label('Event Type'),
@@ -311,7 +311,7 @@ class _EventCreateScreenState extends State<EventCreateScreen>
           TextField(
             controller: _organizerController,
             style: AppTextStyles.bodyLarge,
-            decoration: const InputDecoration(hintText: 'AWS User Group'),
+            decoration: const InputDecoration(hintText: 'Who is organising it?'),
           ),
           const SizedBox(height: 12),
           _label('Description (optional)'),
@@ -380,8 +380,7 @@ class _EventCreateScreenState extends State<EventCreateScreen>
             style: AppTextStyles.bodyLarge,
             maxLines: 8,
             decoration: const InputDecoration(
-              hintText:
-                  'AWS Hackathon\nOctober 4-5, 2026\nRegister before October 1\nhttps://example.com',
+              hintText: 'Paste an invitation, message or announcement here',
             ),
           ),
           const SizedBox(height: 16),
