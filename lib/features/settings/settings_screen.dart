@@ -31,77 +31,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
-            _buildSection('Notifications', [
-              _SettingsTile(
-                icon: Icons.notifications_outlined,
-                title: 'Notification preferences',
-                subtitle: 'Push, alarm, quiet hours',
-                onTap: () {},
-              ),
-              _SettingsTile(
-                icon: Icons.alarm,
-                title: 'Default alarm settings',
-                subtitle: 'Sound, vibration, snooze duration',
-                onTap: () {},
-              ),
-              _SettingsTile(
-                icon: Icons.schedule,
-                title: 'Quiet hours',
-                subtitle: 'No notifications between 10 PM – 7 AM',
-                onTap: () {},
-              ),
-            ]),
-            _buildSection('AI & Processing', [
-              _SettingsTile(
-                icon: Icons.psychology_outlined,
-                title: 'AI preferences',
-                subtitle: 'Model selection, auto-summarize',
-                onTap: () {},
-              ),
-              _SettingsTile(
-                icon: Icons.auto_awesome_outlined,
-                title: 'Auto-extract action items',
-                subtitle: 'Enabled',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (_) {},
-                  activeThumbColor: AppColors.accent,
-                ),
-                onTap: null,
-              ),
-              _SettingsTile(
-                icon: Icons.summarize_outlined,
-                title: 'Auto-generate summaries',
-                subtitle: 'After capturing 5+ items',
-                trailing: Switch(
-                  value: true,
-                  onChanged: (_) {},
-                  activeThumbColor: AppColors.accent,
-                ),
-                onTap: null,
-              ),
-            ]),
-            _buildSection('Storage', [
-              _SettingsTile(
-                icon: Icons.cloud_outlined,
-                title: 'Connected storage',
-                subtitle: 'AWS S3 • Personal bucket',
-                onTap: () {},
-              ),
-              _SettingsTile(
-                icon: Icons.storage_outlined,
-                title: 'Cache & local storage',
-                subtitle: 'Manage offline data',
-                onTap: () {},
-              ),
-            ]),
-            _buildSection('Privacy & Security', [
-              _SettingsTile(
-                icon: Icons.lock_outlined,
-                title: 'Encryption',
-                subtitle: 'AWS KMS — enabled',
-                onTap: () {},
-              ),
+            _buildSection('Your data', [
               _SettingsTile(
                 icon: Icons.download_outlined,
                 title: 'Export my data',
@@ -129,7 +59,6 @@ class SettingsScreen extends StatelessWidget {
                 icon: Icons.info_outline,
                 title: 'About',
                 subtitle: 'Personal Memory OS v1.0.0',
-                onTap: () {},
               ),
               _SettingsTile(
                 icon: Icons.logout,
@@ -348,7 +277,6 @@ class _SettingsTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Color? titleColor;
-  final Widget? trailing;
   final VoidCallback? onTap;
 
   const _SettingsTile({
@@ -356,7 +284,6 @@ class _SettingsTile extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.titleColor,
-    this.trailing,
     this.onTap,
   });
 
@@ -375,11 +302,10 @@ class _SettingsTile extends StatelessWidget {
       subtitle: subtitle != null
           ? Text(subtitle!, style: AppTextStyles.caption)
           : null,
-      trailing: trailing ??
-          (onTap != null
-              ? const Icon(Icons.chevron_right,
-                  color: AppColors.textMuted, size: 18)
-              : null),
+      trailing: onTap != null
+          ? const Icon(Icons.chevron_right,
+              color: AppColors.textMuted, size: 18)
+          : null,
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
