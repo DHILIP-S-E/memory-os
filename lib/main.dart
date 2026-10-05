@@ -43,13 +43,6 @@ import 'package:personal_memory_os/core/widget/home_widget_bridge.dart';
 import 'package:personal_memory_os/core/widget/widget_sync.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 
-/// Real accounts and data on the live backend by default. For an offline demo with
-/// fake data and no account: --dart-define=USE_REAL_BACKEND=false
-const bool _useRealBackend = bool.fromEnvironment(
-  'USE_REAL_BACKEND',
-  defaultValue: true,
-);
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -65,7 +58,7 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   runApp(PersonalMemoryOsApp(
-    useRealBackend: _useRealBackend,
+    useRealBackend: true, // the shipped app only ever shows the user's own real data
     store: PrefsKeyValueStore(prefs),
     shareSource: ChannelShareSource(),
     widgetBridge: ChannelHomeWidgetBridge(),
@@ -73,6 +66,7 @@ void main() async {
 }
 
 class PersonalMemoryOsApp extends StatefulWidget {
+  /// False only in tests, which supply in-memory services instead of the live API.
   final bool useRealBackend;
   final KeyValueStore store;
 
