@@ -14,15 +14,12 @@ class TodayProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int safeTotal = totalTasks > 0 ? totalTasks : (completedTasks + pendingTasks);
-    final double percent = safeTotal > 0
-        ? (completedTasks / safeTotal).clamp(0.0, 1.0)
-        : (completedTasks > 0 ? 1.0 : 0.72); // Default preview to 72% like screenshot if no tasks yet
+    final int displayTotal = totalTasks;
+    final int displayCompleted = completedTasks;
+    final int displayPending = pendingTasks;
+    final double percent =
+        displayTotal > 0 ? (displayCompleted / displayTotal).clamp(0.0, 1.0) : 0.0;
     final int displayPercent = (percent * 100).round();
-
-    final displayTotal = safeTotal > 0 ? safeTotal : 12;
-    final displayCompleted = safeTotal > 0 ? completedTasks : 8;
-    final displayPending = safeTotal > 0 ? pendingTasks : 4;
 
     return Container(
       width: double.infinity,
