@@ -159,7 +159,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                     child: TextField(
                       controller: _titleController,
                       decoration: const InputDecoration(
-                        hintText: 'Finish landing page design',
+                        hintText: 'What do you need to do?',
                         hintStyle: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -186,7 +186,7 @@ class _AddTaskSheetState extends State<AddTaskSheet> {
                       controller: _descController,
                       maxLines: 3,
                       decoration: const InputDecoration(
-                        hintText: 'Design the new landing page for the product launch.',
+                        hintText: 'Add details (optional)',
                         hintStyle: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
