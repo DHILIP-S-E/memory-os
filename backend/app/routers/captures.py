@@ -3,11 +3,11 @@ Capture API router.
 
 Upload flow:
   1. Flutter  →  POST /captures/upload-url  →  gets {upload_url, capture_id, s3_key}
-  2. Flutter  →  PUT  <upload_url>          →  uploads file directly to S3
+  2. Flutter  →  PUT  <upload_url>          →  uploads the file directly to R2
   3. Flutter  →  POST /captures             →  registers capture in DB
   4. Flutter  →  GET  /captures/{id}/download-url  →  gets pre-signed GET URL
 
-Text notes and links skip S3 entirely (content stored in DB).
+Text notes and links skip file storage entirely (content stored in DB).
 """
 
 import uuid
@@ -25,7 +25,8 @@ from app.models.capture import Capture
 from app import validation as v
 from app.services.capture_ai import process_text_capture
 from app.services.capture_queue import enqueue_text_capture
-from app.services.s3_service import (
+from app.services.storage import (
+    StorageUnavailable,
     generate_upload_url,
     generate_download_url,
     delete_object,
@@ -33,7 +34,7 @@ from app.services.s3_service import (
 
 router = APIRouter()
 
-# S3 key pattern:  users/{user_id}/events/{event_id}/{type}/{capture_id}.{ext}
+# Storage key pattern:  users/{user_id}/events/{event_id}/{type}/{capture_id}.{ext}
 #                  users/{user_id}/misc/{type}/{capture_id}.{ext}
 _S3_KEY_TEMPLATE = "users/{user_id}/{event_part}{capture_type}/{capture_id}.{ext}"
 
@@ -143,7 +144,7 @@ async def get_upload_url(
     body: UploadUrlRequest,
     user_id: str = Depends(get_current_user_id),
 ):
-    """Step 1 — get a pre-signed PUT URL for direct S3 upload."""
+    """Step 1 — get a short-lived signed PUT URL for direct upload to R2."""
     capture_id = str(uuid.uuid4())
     event_part = f"events/{body.event_id}/" if body.event_id else "misc/"
     s3_key = _S3_KEY_TEMPLATE.format(
@@ -153,12 +154,15 @@ async def get_upload_url(
         capture_id=capture_id,
         ext=body.file_extension,
     )
-    upload_url = generate_upload_url(s3_key, body.content_type)
+    try:
+        upload_url = generate_upload_url(s3_key, body.content_type)
+    except StorageUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
     return {
         "upload_url": upload_url,
         "capture_id": capture_id,
         "s3_key": s3_key,
-        "expires_in": 3600,
+        "expires_in": 15 * 60,
     }
 
 
@@ -168,7 +172,7 @@ async def register_capture(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Step 3 — register capture in DB after successful S3 upload."""
+    """Step 3 — register capture in DB after a successful upload."""
     if not v.owns_storage_key(body.storage_key, user_id):
         # Otherwise a user could register someone else's file and then download or delete it.
         raise HTTPException(status_code=422, detail="storage_key does not belong to you")
@@ -198,7 +202,7 @@ async def create_text_note(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a text note — no S3 upload needed."""
+    """Create a text note — no file upload needed."""
     now = datetime.utcnow()
     capture = Capture(
         id=str(uuid.uuid4()),
@@ -227,7 +231,7 @@ async def save_link(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Save a URL — no S3 upload needed."""
+    """Save a URL — no file upload needed."""
     now = datetime.utcnow()
     capture = Capture(
         id=str(uuid.uuid4()),
@@ -282,7 +286,7 @@ async def get_download_url(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return a short-lived pre-signed GET URL for the capture's S3 object."""
+    """Return a short-lived signed GET URL for the capture's file."""
     capture = await _get_owned(capture_id, user_id, db)
     if not capture.storage_key:
         raise HTTPException(
@@ -291,8 +295,11 @@ async def get_download_url(
         )
     if not v.owns_storage_key(capture.storage_key, user_id):
         raise HTTPException(status_code=404, detail="This capture has no associated file")
-    url = generate_download_url(capture.storage_key)
-    return {"download_url": url, "expires_in": 3600}
+    try:
+        url = generate_download_url(capture.storage_key)
+    except StorageUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+    return {"download_url": url, "expires_in": 5 * 60}
 
 
 @router.patch("/{capture_id}")
@@ -329,7 +336,7 @@ async def delete_capture(
     db: AsyncSession = Depends(get_db),
 ):
     capture = await _get_owned(capture_id, user_id, db)
-    # Remove S3 object if present
+    # Remove the stored file if there is one
     if capture.storage_key and v.owns_storage_key(capture.storage_key, user_id):
         delete_object(capture.storage_key)
     await db.delete(capture)
