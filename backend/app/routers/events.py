@@ -21,7 +21,6 @@ from app.database import get_db
 from app.models.event import Event, EventDeadline
 from app.models.capture import Capture
 from app.models.reminder import Reminder
-from app.services import knowledge_base
 from app.services.event_policy import build_reminder_policy
 
 router = APIRouter()
@@ -517,7 +516,6 @@ async def generate_event_summary(
 
     await db.commit()
     await db.refresh(doc)
-    knowledge_base.sync_document(doc.to_dict())
     return doc.to_dict()
 
 
