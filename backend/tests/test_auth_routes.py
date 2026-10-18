@@ -39,7 +39,6 @@ def client(monkeypatch):
 
     app.dependency_overrides[get_db] = override
     monkeypatch.setattr(settings, "jwt_secret", SECRET)
-    monkeypatch.setattr(settings, "cognito_user_pool_id", "")
     monkeypatch.setattr(auth_router, "throttle", LoginThrottle(max_failures=3))
     yield TestClient(app)
     app.dependency_overrides.clear()
