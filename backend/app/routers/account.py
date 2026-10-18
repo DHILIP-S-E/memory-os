@@ -3,7 +3,6 @@ Account data rights (spec R5.7, R5.8): export everything, delete everything.
 Deletion cascades S3 objects, DB rows, and pending cloud reminder schedules.
 """
 
-import json
 import logging
 
 from typing import Optional
@@ -18,11 +17,13 @@ from app.auth import get_current_user_id
 from app.database import get_db
 from app.models.capture import Capture
 from app.models.delivery import NotificationDelivery
+from app.models.device import DeviceToken
+from app.models.job import Job
 from app.models.event import Event, EventDeadline
 from app.models.memory import MemoryDocument
 from app.models.reminder import Reminder
 from app.models.user import User
-from app.services import knowledge_base, scheduling
+from app.services import knowledge_base
 from app.services.storage import delete_object
 from app.validation import real_timezone
 
@@ -105,15 +106,10 @@ async def delete_account(
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Permanently delete all user data (S3 media, schedules, database rows)."""
+    """Permanently delete all user data: stored files, queued deliveries, devices and every row."""
     reminders = (
         await db.execute(select(Reminder).where(Reminder.user_id == user_id))
     ).scalars().all()
-    for r in reminders:
-        try:
-            scheduling.cancel_reminder(r.id, r.scheduled_at, json.loads(r.offsets or "[]"))
-        except Exception:
-            logger.exception("Could not cancel schedules for reminder %s", r.id)
 
     captures = (
         await db.execute(select(Capture).where(Capture.user_id == user_id))
@@ -123,7 +119,7 @@ async def delete_account(
             delete_object(c.storage_key)
 
     knowledge_base.remove_user_documents(user_id)
-    for model in (NotificationDelivery, MemoryDocument, Capture, EventDeadline, Reminder, Event):
+    for model in (Job, DeviceToken, NotificationDelivery, MemoryDocument, Capture, EventDeadline, Reminder, Event):
         await db.execute(delete(model).where(model.user_id == user_id))
     # Last: the login itself, so the user cannot sign back into an emptied account.
     await db.execute(delete(User).where(User.id == user_id))
