@@ -165,6 +165,9 @@ class OfflineCaptureService implements CaptureService {
   @override
   Future<void> deleteCapture(String id) => _remote.deleteCapture(id);
 
+  @override
+  Future<Capture> retryProcessing(String id) => _remote.retryProcessing(id);
+
   Future<Capture> _queueLocal(
     SyncOpType op,
     CaptureType type,
