@@ -11,6 +11,7 @@ import 'package:personal_memory_os/core/utils/date_utils.dart';
 import 'package:personal_memory_os/core/router/app_router.dart';
 import 'package:personal_memory_os/features/events/widgets/reminder_plan_section.dart';
 import 'package:personal_memory_os/shared/widgets/capture_card.dart';
+import 'package:personal_memory_os/shared/widgets/retry_capture.dart';
 
 class EventDetailScreen extends StatelessWidget {
   final String eventId;
@@ -386,7 +387,7 @@ class EventDetailScreen extends StatelessWidget {
               else
                 ...captures
                     .take(5)
-                    .map((c) => CaptureCard(capture: c)),
+                    .map((c) => CaptureCard(capture: c, onRetry: () => retryCapture(context, c.id))),
             ],
           );
         },
