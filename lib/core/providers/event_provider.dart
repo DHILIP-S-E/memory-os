@@ -101,6 +101,12 @@ class EventProvider extends ChangeNotifier {
   Future<int> skipMilestone(String eventId, String deadlineId) =>
       _apply(() => _service.skipMilestone(eventId, deadlineId));
 
+  Future<List<PolicyReminder>> previewReminderPolicy(String eventId, ReminderPolicyChoice choice) =>
+      _service.previewReminderPolicy(eventId, choice);
+
+  Future<int> applyReminderPolicy(String eventId, ReminderPolicyChoice choice) =>
+      _service.applyReminderPolicy(eventId, choice);
+
   Future<void> loadEvents() async {
     _isLoading = true;
     _error = null;
