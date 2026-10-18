@@ -1,8 +1,9 @@
 """
-Email/password login (the app's own accounts; no Cognito).
+Sign-in: the app's own email/password accounts, and Google sign-in.
 
   POST /auth/register  create an account, returns tokens
   POST /auth/login     returns tokens (throttled against brute force)
+  POST /auth/google    sign in with a Google ID token; creates or links the account
   POST /auth/refresh   new access token from a refresh token
   GET  /auth/me        the signed-in user
 """
@@ -21,6 +22,7 @@ from app.auth import get_current_user_id
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
+from app.services import google_auth
 from app.services.login_throttle import LoginThrottle
 from app.services.passwords import WeakPassword, hash_password, verify_password
 from app.services.tokens import (
@@ -43,6 +45,10 @@ class Credentials(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class GoogleSignIn(BaseModel):
+    id_token: str
 
 
 def _secret() -> str:
@@ -109,6 +115,43 @@ async def login(body: Credentials, request: Request, db: AsyncSession = Depends(
         throttle.record_failure(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password")
     throttle.reset(key)
+    return _tokens(user)
+
+
+@router.post("/google")
+async def sign_in_with_google(body: GoogleSignIn, db: AsyncSession = Depends(get_db)):
+    """Sign in with the ID token from Google. A new person gets an account; someone who already
+    has a password account with the same (Google-verified) email is linked to it."""
+    _secret()
+    try:
+        identity = google_auth.verify(body.id_token)
+    except (google_auth.GoogleNotConfigured, google_auth.GoogleUnavailable) as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc))
+    except google_auth.GoogleSignInError as exc:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, str(exc))
+
+    user = (await db.execute(select(User).where(User.google_sub == identity.sub))).scalar_one_or_none()
+    if user is None:
+        user = (await db.execute(select(User).where(User.email == identity.email))).scalar_one_or_none()
+        if user is not None:
+            if user.google_sub and user.google_sub != identity.sub:
+                raise HTTPException(status.HTTP_409_CONFLICT, "This email is linked to a different Google account")
+            user.google_sub = identity.sub
+        else:
+            user = User(
+                id=str(uuid.uuid4()), email=identity.email,
+                password_hash="",  # Google-only: no password can ever match
+                display_name=(identity.name or "").strip() or identity.email.split("@")[0],
+                google_sub=identity.sub, created_at=datetime.utcnow(),
+            )
+            db.add(user)
+    try:
+        await db.commit()
+    except IntegrityError:  # the same person signing in twice at once
+        await db.rollback()
+        user = (await db.execute(select(User).where(User.google_sub == identity.sub))).scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Could not sign in. Please try again.")
     return _tokens(user)
 
 
