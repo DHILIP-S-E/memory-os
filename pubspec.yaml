@@ -57,6 +57,9 @@ dependencies:
   # Path provider (local file paths)
   path_provider: ^2.1.4
   flutter_timezone: ^5.1.1
+  google_sign_in: ^7.2.0
+  firebase_core: ^5.0.0
+  firebase_messaging: ^17.0.0
 
 dev_dependencies:
   flutter_test:
