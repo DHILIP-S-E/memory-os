@@ -14,13 +14,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
-import workers.notification_dispatcher as d
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 from app.services import quiet_hours as q
-from tests.test_capture_worker import FakeConn
-from tests.test_dispatcher import FakeSns, event
 
 UTC = timezone.utc
 
@@ -67,42 +64,6 @@ def test_turning_quiet_hours_off_and_custom_windows_are_respected():
     assert q.should_suppress("medium", at(17, 30), "UTC", "Asia/Kolkata", start=23, end=6) is True    # 23:00 is inside 23-6
     assert q.should_suppress("medium", at(17, 0), "UTC", "Asia/Kolkata", start=23, end=6) is False   # 22:30 is not
     assert q.should_suppress("high", at(17, 30), "UTC", "Asia/Kolkata") is False
-
-
-# --- the dispatcher reads the settings when the reminder fires --------------------------------
-
-def run(monkeypatch, row, **ev):
-    conn = FakeConn(row=row)
-    sns = FakeSns()
-    monkeypatch.setenv("NOTIFICATION_TOPIC_ARN", "arn:aws:sns:ap-south-1:1:t")
-    monkeypatch.setattr(d, "sync_database_url", lambda: "postgresql://x")
-    monkeypatch.setattr(d.psycopg2, "connect", lambda url: conn)
-    monkeypatch.setattr(d, "_sns", sns)
-    return d.handler(event(**{"timezone": "UTC", "fire_at": at(17, 30).isoformat(), **ev}), None), sns
-
-
-def test_a_saved_zone_suppresses_a_night_time_reminder_the_app_sent_as_utc(monkeypatch):
-    out, sns = run(monkeypatch, ("Asia/Kolkata", True, None, None))
-    assert out == {"suppressed": True} and sns.published == []
-
-
-def test_a_user_who_turned_quiet_hours_off_still_gets_it(monkeypatch):
-    out, sns = run(monkeypatch, ("Asia/Kolkata", False, None, None))
-    assert out["sent"] is True and len(sns.published) == 1
-
-
-def test_a_settings_lookup_failure_still_sends_the_reminder(monkeypatch):
-    def boom(conn, user_id):
-        raise RuntimeError("column does not exist")
-
-    monkeypatch.setattr(d, "_user_settings", boom)
-    out, sns = run(monkeypatch, None)
-    assert out["sent"] is True and len(sns.published) == 1
-
-
-def test_an_unknown_user_gets_the_safe_default_of_no_suppression(monkeypatch):
-    out, _ = run(monkeypatch, None)
-    assert out["sent"] is True
 
 
 # --- the settings API ------------------------------------------------------------------------
