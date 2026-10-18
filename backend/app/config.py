@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     gemini_model_fast: str = "gemini-3.8-flash"          # parsing, extraction, capture summaries
     gemini_model_strong: str = "gemini-4-argon"          # event summaries, memory Q&A
     gemini_embedding_model: str = "gemini-embedding-001"
+    # Cloudflare R2 (S3-compatible) for private files. Empty keys = uploads report "not configured".
+    r2_account_id: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket: str = "personal-memory-os"
+    r2_endpoint: str = ""        # optional override, e.g. a local MinIO; default is the account's R2 endpoint
     auto_create_tables: bool = False         # local dev with SQLite: create tables on startup
     cors_origins: str = "*"                  # comma-separated browser origins, e.g. https://app.example.com
     jwt_secret: str = ""                     # >= 32 chars; enables the app's own email/password login
