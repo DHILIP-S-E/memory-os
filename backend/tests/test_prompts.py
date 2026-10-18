@@ -4,7 +4,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
 
 import pytest
 
-from app.services.bedrock_service import _load_prompt, _render
+from app.services.llm_service import _load_prompt, _render
 
 
 @pytest.mark.parametrize(
