@@ -86,7 +86,7 @@ def test_model_failure_marks_failed_not_stuck(factory):
     add(factory)
 
     def boom(text):
-        raise RuntimeError("bedrock down")
+        raise RuntimeError("AI service down")
 
     asyncio.run(process_text_capture("c1", factory, boom))
     assert load(factory).processing_status == "failed"
