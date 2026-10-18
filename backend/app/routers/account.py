@@ -23,7 +23,7 @@ from app.models.memory import MemoryDocument
 from app.models.reminder import Reminder
 from app.models.user import User
 from app.services import knowledge_base, scheduling
-from app.services.s3_service import delete_object
+from app.services.storage import delete_object
 from app.validation import real_timezone
 
 router = APIRouter()
