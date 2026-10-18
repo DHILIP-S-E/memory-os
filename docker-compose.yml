@@ -1,0 +1,44 @@
+# Everything the app needs, on one machine:  docker compose up --build
+#   db      Postgres (the source of truth and the job queue)
+#   api     FastAPI on http://localhost:8080 (runs migrations on start)
+#   worker  delivers reminders and reads captures in the background
+# Keys for Gemini, R2, Google sign-in and push go in backend/.env (see backend/.env.example).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pmos
+      POSTGRES_PASSWORD: pmos
+      POSTGRES_DB: personal_memory_os
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pmos -d personal_memory_os"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://pmos:pmos@db:5432/personal_memory_os
+    ports: ["8080:8080"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.worker"]
+    env_file:
+      - path: backend/.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql://pmos:pmos@db:5432/personal_memory_os
+    depends_on:
+      db: { condition: service_healthy }
+      api: { condition: service_started }
+
+volumes:
+  pgdata:
