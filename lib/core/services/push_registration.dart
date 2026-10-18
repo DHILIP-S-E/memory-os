@@ -40,5 +40,17 @@ class PushRegistration {
     }
   }
 
+  /// Call before signing out, while the session still works: this phone stops receiving the
+  /// account's reminders, and the next sign-in registers again.
+  Future<void> unregister() async {
+    final token = await _store.read(_lastTokenKey);
+    if (token == null || token.isEmpty) return;
+    try {
+      await _device.unregisterPushToken(token);
+    } finally {
+      await _store.write(_lastTokenKey, ''); // the next sign-in registers again
+    }
+  }
+
   Future<void> dispose() async => _refresh?.cancel();
 }
