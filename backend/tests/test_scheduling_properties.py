@@ -9,9 +9,8 @@ from hypothesis import given, strategies as st
 
 from app.services.event_policy import build_reminder_policy
 from app.services.reminder_parser import offset_to_minutes
-from app.services.scheduling import compute_fire_times, in_quiet_hours, schedule_name
-from workers.capture_processor import parse_s3_key, s3_keys
-from workers.notification_dispatcher import should_suppress
+from app.services.quiet_hours import in_quiet_hours, should_suppress
+from app.services.scheduling import compute_fire_times, delivery_times, job_key, key_prefix
 
 NOW = datetime(2026, 10, 1, 12, 0, tzinfo=timezone.utc)
 future = st.datetimes(
@@ -58,10 +57,32 @@ def test_high_priority_never_suppressed(fire_at):
     assert should_suppress("high", fire_at) is False
 
 
-@given(st.text(min_size=1, max_size=40), future)
-def test_schedule_name_valid_for_eventbridge(reminder_id, fire_at):
-    name = schedule_name(reminder_id, fire_at)
-    assert 0 < len(name) <= 64
+@given(st.uuids(), future, future)
+def test_each_fire_time_has_its_own_key_under_the_reminders_prefix(reminder_id, a, b):
+    rid = str(reminder_id)
+    assert job_key(rid, a).startswith(key_prefix(rid))
+    assert (job_key(rid, a) == job_key(rid, b)) == (int(a.timestamp()) == int(b.timestamp()))
+    assert len(job_key(rid, a)) <= 200
+
+
+@given(future, st.lists(offset, max_size=5))
+def test_a_one_off_reminder_is_delivered_at_its_fire_times(target, offsets):
+    assert delivery_times(target, offsets, None, "UTC", NOW) == compute_fire_times(target, offsets, NOW)
+
+
+@given(future)
+def test_a_repeating_reminder_queues_only_its_next_occurrence(target):
+    times = delivery_times(target, ["-1h", "-1d"], "FREQ=DAILY", "Asia/Kolkata", NOW)
+    assert len(times) == 1 and times[0] > NOW - timedelta(seconds=1)
+
+
+def test_an_unsupported_rule_falls_back_to_a_one_off_reminder():
+    target = NOW + timedelta(days=1)
+    assert delivery_times(target, [], "FREQ=SECONDLY", "UTC", NOW) == [target]
+
+
+def test_no_time_means_nothing_to_deliver():
+    assert delivery_times(None, ["-1h"], None, "UTC", NOW) == []
 
 
 EVENT_TYPES = ["hackathon", "conference", "workshop", "webinar", "meetup", "meeting", "appointment", "deadline", "custom"]
@@ -85,17 +106,3 @@ def test_hackathon_policy_example():
     titles = [p["title"] for p in policy]
     assert "AWS Hackathon starts in 30m" in titles
     assert any(t.startswith("Register due in 1d") for t in titles)
-
-
-def test_parse_s3_key():
-    assert parse_s3_key("users/u1/events/e1/photo/c1.jpg") == {
-        "user": "u1", "event": "e1", "type": "photo", "id": "c1"
-    }
-    assert parse_s3_key("users/u1/misc/voice/c2.m4a")["event"] is None
-    assert parse_s3_key("processed/foo.json") is None
-
-
-def test_s3_keys_direct_and_eventbridge():
-    assert s3_keys({"Records": [{"s3": {"object": {"key": "a"}}}]}) == ["a"]
-    assert s3_keys({"detail": {"object": {"key": "b"}}}) == ["b"]
-    assert s3_keys({}) == []
