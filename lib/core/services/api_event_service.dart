@@ -76,4 +76,25 @@ class ApiEventService implements EventService {
   @override
   Future<MilestoneChange> skipMilestone(String eventId, String deadlineId) =>
       _change(eventId, () => _client.post('/events/$eventId/deadlines/$deadlineId/skip', {}));
+
+  @override
+  Future<List<PolicyReminder>> previewReminderPolicy(String eventId, ReminderPolicyChoice choice) async {
+    final query = Uri(queryParameters: choice.query).query;
+    final data = await _client.get('/events/$eventId/reminder-policy${query.isEmpty ? '' : '?$query'}') as List<dynamic>;
+    return data.map((raw) {
+      final j = raw as Map<String, dynamic>;
+      return PolicyReminder(
+        title: j['title'] as String? ?? 'Reminder',
+        at: DateTime.parse(j['scheduled_at'] as String).toLocal(),
+        isDeadline: j['reminder_type'] == 'deadline',
+        repeatsDaily: (j['recurrence_rule'] as String? ?? '').contains('FREQ=DAILY'),
+      );
+    }).toList();
+  }
+
+  @override
+  Future<int> applyReminderPolicy(String eventId, ReminderPolicyChoice choice) async {
+    final data = await _client.post('/events/$eventId/reminder-policy', choice.body) as List<dynamic>;
+    return data.length;
+  }
 }
