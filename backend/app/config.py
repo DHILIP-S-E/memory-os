@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     r2_secret_access_key: str = ""
     r2_bucket: str = "personal-memory-os"
     r2_endpoint: str = ""        # optional override, e.g. a local MinIO; default is the account's R2 endpoint
+    # Firebase Cloud Messaging for push. Empty = deliveries are recorded as not sent; the phone's
+    # own alarm still rings. The credentials file is a Firebase service-account key, never in git.
+    fcm_project_id: str = ""
+    fcm_credentials_file: str = ""
     auto_create_tables: bool = False         # local dev with SQLite: create tables on startup
     cors_origins: str = "*"                  # comma-separated browser origins, e.g. https://app.example.com
     jwt_secret: str = ""                     # >= 32 chars; enables the app's own email/password login
