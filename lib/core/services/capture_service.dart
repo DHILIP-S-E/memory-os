@@ -12,6 +12,9 @@ abstract class CaptureService {
   Future<Capture> saveTextNote({required String text, String? eventId});
   Future<Capture> saveLink({required String url, String? eventId});
   Future<void> deleteCapture(String id);
+
+  /// Read a failed capture again (for example after the AI was unavailable).
+  Future<Capture> retryProcessing(String id);
 }
 
 class StubCaptureService implements CaptureService {
@@ -95,6 +98,13 @@ class StubCaptureService implements CaptureService {
     );
     _captures.insert(0, capture);
     return capture;
+  }
+
+  @override
+  Future<Capture> retryProcessing(String id) async {
+    final i = _captures.indexWhere((c) => c.id == id);
+    if (i == -1) throw StateError('Capture not found');
+    return _captures[i] = _captures[i].copyWith(processingStatus: CaptureProcessingStatus.queued);
   }
 
   @override
