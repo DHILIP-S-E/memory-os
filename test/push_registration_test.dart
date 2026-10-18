@@ -15,6 +15,12 @@ class FakeDevice implements DeviceService {
     if (fail) throw StateError('offline');
     calls.add('$platform:$token');
   }
+
+  @override
+  Future<void> unregisterPushToken(String token) async {
+    if (fail) throw StateError('offline');
+    calls.add('unregister:$token');
+  }
 }
 
 class FakeSource implements PushTokenSource {
@@ -68,5 +74,31 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(device.calls, ['fcm:t1', 'fcm:t2']);
     await reg.dispose();
+  });
+
+  test('signing out unregisters this phone, and the next sign-in registers again', () async {
+    final device = FakeDevice();
+    final reg = PushRegistration(device, FakeSource('t1'), MemoryKeyValueStore());
+    await reg.register();
+    await reg.unregister();
+    expect(device.calls, ['fcm:t1', 'unregister:t1']);
+    expect(await reg.register(), isTrue, reason: 'registered again after signing back in');
+  });
+
+  test('unregistering with nothing registered does nothing', () async {
+    final device = FakeDevice();
+    await PushRegistration(device, FakeSource(null), MemoryKeyValueStore()).unregister();
+    expect(device.calls, isEmpty);
+  });
+
+  test('a failed unregister still forgets the token locally', () async {
+    final device = FakeDevice();
+    final store = MemoryKeyValueStore();
+    final reg = PushRegistration(device, FakeSource('t1'), store);
+    await reg.register();
+    device.fail = true;
+    await expectLater(reg.unregister(), throwsStateError);
+    device.fail = false;
+    expect(await reg.register(), isTrue);
   });
 }
