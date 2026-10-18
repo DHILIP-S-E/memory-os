@@ -75,6 +75,13 @@ void main() {
       expect(of('cancelled').heldByQuietHours, isFalse);
     });
 
+    test('a reminder that could not be pushed says why, and that the local alarm still rings', () {
+      expect(of('skipped', error: 'push not configured').statusLabel, 'Not sent');
+      expect(of('skipped', error: 'push not configured').explanation, contains('not set up yet'));
+      expect(of('skipped', error: 'no device registered').explanation, contains('No phone was registered'));
+      expect(of('skipped').explanation, contains('own alarm still rings'));
+    });
+
     test('a failure says so and never leaks the raw error', () {
       expect(of('failed', error: 'botocore.exceptions.ClientError: secret detail').explanation, isNot(contains('botocore')));
       expect(of('failed').statusLabel, 'Failed');
