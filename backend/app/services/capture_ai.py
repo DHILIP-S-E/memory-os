@@ -60,11 +60,11 @@ def parse_summary(raw: str) -> dict:
 
 
 def summarise_text(text: str) -> dict:
-    """Call the fast Bedrock model (blocking) and parse its reply."""
+    """Call the fast Gemini model (blocking) and parse its reply."""
     from app.config import settings
-    from app.services.bedrock_service import _invoke
+    from app.services.llm_service import _invoke
 
-    return parse_summary(_invoke(settings.bedrock_model_fast, build_prompt(text), max_tokens=800))
+    return parse_summary(_invoke(settings.gemini_model_fast, build_prompt(text), max_tokens=800))
 
 
 async def process_text_capture(
