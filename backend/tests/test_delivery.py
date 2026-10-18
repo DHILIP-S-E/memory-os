@@ -120,6 +120,13 @@ def test_the_users_saved_timezone_applies_when_the_reminder_says_utc(env):
     assert fake.sent == []
 
 
+def test_a_user_who_turned_quiet_hours_off_still_gets_it_at_night(env):
+    Session, fake = env
+    run(seed(Session, fire_at=NIGHT, quiet=False))
+    fire(Session, NIGHT)
+    assert len(fake.sent) == 2
+
+
 def test_high_priority_rings_even_in_quiet_hours(env):
     Session, fake = env
     run(seed(Session, fire_at=NIGHT, priority="high"))
