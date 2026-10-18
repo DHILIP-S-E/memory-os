@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ValidationError, field_validator, model_validator
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,7 +21,7 @@ from app.database import get_db
 from app.models.event import Event, EventDeadline
 from app.models.capture import Capture
 from app.models.reminder import Reminder
-from app.services.event_policy import build_reminder_policy
+from app.services.event_policy import CADENCE_CHOICES, build_reminder_policy
 
 router = APIRouter()
 
@@ -256,28 +256,63 @@ async def add_deadline(
 @router.get("/{event_id}/reminder-policy")
 async def preview_reminder_policy(
     event_id: str,
+    cadence: Optional[str] = None,
+    daily_until_registered: bool = False,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Preview the smart reminder policy for this event (R2.4). Nothing is created."""
+    """Preview the reminder policy for this event. Nothing is created.
+    cadence: comma-separated steps such as "7d,3d,1d,morning" (see PolicyChoice)."""
+    try:
+        choice = PolicyChoice(
+            cadence=[c.strip() for c in cadence.split(",") if c.strip()] if cadence else [],
+            daily_until_registered=daily_until_registered,
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()[0]["msg"].replace("Value error, ", ""))
     event = await _get_owned(event_id, user_id, db)
     return [
         {**r, "scheduled_at": r["scheduled_at"].isoformat()}
-        for r in _policy_for(event)
+        for r in _policy_for(event, choice)
     ]
+
+
+class PolicyChoice(BaseModel):
+    """The user's cadence for deadline reminders, and whether to be reminded daily until registered."""
+    cadence: list[str] = []
+    daily_until_registered: bool = False
+
+    @field_validator("cadence")
+    @classmethod
+    def _cadence(cls, v):
+        if len(v) > 10:
+            raise ValueError("Choose at most 10 reminder times")
+        return [one_of(step, CADENCE_CHOICES, "Reminder time") for step in v]
 
 
 @router.post("/{event_id}/reminder-policy", status_code=status.HTTP_201_CREATED)
 async def apply_reminder_policy(
     event_id: str,
+    body: Optional[PolicyChoice] = None,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
-    """Create the reminders from the policy the user confirmed, on both alarm layers."""
+    """Create the reminders from the policy the user confirmed, on both alarm layers.
+    Applying it again never duplicates a reminder that already exists."""
     event = await _get_owned(event_id, user_id, db)
     now = datetime.utcnow()
+    existing = {
+        (r.title, _aware(r.scheduled_at), r.milestone_id)
+        for r in (await db.execute(
+            select(Reminder).where(Reminder.user_id == user_id, Reminder.context_id == event_id,
+                                   Reminder.source == "event", Reminder.status == "active")
+        )).scalars().all()
+        if r.scheduled_at is not None
+    }
     created = []
-    for spec in _policy_for(event):
+    for spec in _policy_for(event, body or PolicyChoice()):
+        if (spec["title"], spec["scheduled_at"], spec.get("milestone_id")) in existing:
+            continue
         reminder = Reminder(
             id=str(uuid.uuid4()), user_id=user_id, source="event",
             context_id=event_id, timezone=event.timezone,
@@ -377,20 +412,26 @@ async def _stop_reminders(milestone_ids: set[str], user_id: str, db: AsyncSessio
     return ids
 
 
-def _policy_for(event: Event) -> list[dict]:
+def _aware(dt: datetime) -> datetime:
     from datetime import timezone as tz
 
-    def aware(dt: datetime) -> datetime:
-        return dt if dt.tzinfo else dt.replace(tzinfo=tz.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=tz.utc)
 
+
+def _policy_for(event: Event, choice: "PolicyChoice | None" = None) -> list[dict]:
+    from datetime import timezone as tz
+
+    choice = choice or PolicyChoice()
     # Finished milestones (done, skipped, expired) get no reminders.
     deadlines = [
-        (d.title, aware(d.deadline_at), d.id)
+        (d.title, _aware(d.deadline_at), d.id, milestones.normalize_type(d.deadline_type))
         for d in event.deadlines if d.status == milestones.ACTIVE
     ]
     return build_reminder_policy(
-        event.title, event.event_type, aware(event.start_at), deadlines,
+        event.title, event.event_type, _aware(event.start_at), deadlines,
         datetime.now(tz.utc),
+        cadence=choice.cadence, daily_until_registered=choice.daily_until_registered,
+        timezone_name=event.timezone,
     )
 
 
