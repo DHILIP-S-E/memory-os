@@ -15,7 +15,7 @@ from app.auth import get_current_user_id
 from app.database import get_db
 from app.models.memory import MemoryDocument
 from app.services import knowledge_base
-from app.services.bedrock_service import answer_memory_question
+from app.services.llm_service import answer_memory_question
 
 router = APIRouter()
 
@@ -80,13 +80,13 @@ async def ask_memory(
     db: AsyncSession = Depends(get_db),
 ):
     """
-    RAG memory Q&A powered by the strong Amazon Bedrock model.
+    Memory Q&A grounded in the user's own documents, answered by the strong Gemini model.
 
     Flow:
     1. Keyword search memory_documents for relevant context
     2. Fall back to most recent 5 documents if no keyword match
     3. Build context string from matched documents
-    4. Call the strong Bedrock model with context + question
+    4. Call the strong Gemini model with context + question
     5. Return grounded answer with source citations
 
     Every answer is traceable to stored memory — no hallucination from training data.
@@ -136,7 +136,7 @@ async def ask_memory(
         )
         docs = result.scalars().all()
 
-    # Step 3+4+5: call Bedrock with context
+    # Step 3+4+5: call Gemini with context
     return answer_memory_question(body.question, docs)
 
 
