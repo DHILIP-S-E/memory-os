@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
-import app.routers.reminders as reminders_module
 import workers.notification_dispatcher as d
 from app.config import settings
 from app.database import Base, get_db
@@ -125,7 +124,6 @@ def client(monkeypatch):
 
     app.dependency_overrides[get_db] = override
     monkeypatch.setattr(settings, "jwt_secret", "q" * 48)
-    monkeypatch.setattr(reminders_module, "_schedule_cloud_layer", lambda r: None)
     yield TestClient(app)
     app.dependency_overrides.clear()
 
