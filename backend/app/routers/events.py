@@ -441,11 +441,11 @@ async def generate_event_summary(
     Flow:
       1. Fetch event + all captures for the event
       2. Build captures_text from content/transcription fields
-      3. Call the strong Bedrock model (summarize_event)
+      3. Call the strong Gemini model (summarize_event)
       4. Save MemoryDocument to DB
       5. Update event.summary_id
     """
-    from app.services.bedrock_service import summarize_event
+    from app.services.llm_service import summarize_event
     from app.models.memory import MemoryDocument
 
     # Verify event ownership
@@ -470,7 +470,7 @@ async def generate_event_summary(
             lines.append(f"[{label} AI SUMMARY] {c.ai_summary}")
     captures_text = "\n\n".join(lines)
 
-    # Call Bedrock
+    # Call Gemini
     summary_data = summarize_event(
         event_title=event.title,
         event_date=event.start_at.date().isoformat(),
