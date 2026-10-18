@@ -7,7 +7,10 @@ class CaptureCard extends StatelessWidget {
   final Capture capture;
   final VoidCallback? onTap;
 
-  const CaptureCard({super.key, required this.capture, this.onTap});
+  /// Shown as "Try again" when the capture could not be read.
+  final VoidCallback? onRetry;
+
+  const CaptureCard({super.key, required this.capture, this.onTap, this.onRetry});
 
   Color get _typeColor {
     switch (capture.type) {
@@ -117,6 +120,20 @@ class CaptureCard extends StatelessWidget {
         ),
       );
     }
+    if (capture.processingStatus == CaptureProcessingStatus.failed) {
+      return Container(
+        key: const ValueKey('failed-badge'),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: AppColors.urgent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: const Text(
+          "Couldn't read",
+          style: TextStyle(fontSize: 10, color: AppColors.urgent, fontWeight: FontWeight.w600),
+        ),
+      );
+    }
     return const SizedBox.shrink();
   }
 
@@ -193,6 +210,16 @@ class CaptureCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
+                  if (onRetry != null && capture.processingStatus == CaptureProcessingStatus.failed)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const ValueKey('retry-capture'),
+                        onPressed: onRetry,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Try again'),
+                      ),
+                    ),
                   const SizedBox(height: 4),
                   Text(
                     AppDateUtils.timeUntil(capture.createdAt) == 'Overdue'
