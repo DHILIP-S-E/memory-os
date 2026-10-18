@@ -5,7 +5,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
 # R1.7 lifecycle: scheduled -> triggered -> sent -> delivered | failed
-DELIVERY_STATUSES = ("scheduled", "triggered", "sent", "delivered", "failed", "retrying", "cancelled")
+# "skipped": nothing was sent because there is no push channel (not configured, or no device).
+DELIVERY_STATUSES = ("scheduled", "triggered", "sent", "delivered", "failed", "retrying", "cancelled", "skipped")
 
 
 class NotificationDelivery(Base):
@@ -22,6 +23,8 @@ class NotificationDelivery(Base):
     fire_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     message_id: Mapped[str | None] = mapped_column(String(255))
     error: Mapped[str | None] = mapped_column(Text)
+    job_id: Mapped[str | None] = mapped_column(String(36), index=True)      # the delivery job it came from
+    device_id: Mapped[str | None] = mapped_column(String(255))             # the phone it went to (column from 001)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
