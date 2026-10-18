@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     cognito_user_pool_id: str = ""
     cognito_region: str = "us-east-1"
     cognito_app_client_id: str = ""
+    # Google Gemini, called only from the backend. An empty key turns AI features off with a
+    # clear "not configured" message instead of failing. Models are settings, not code.
+    gemini_api_key: str = ""
+    gemini_model_fast: str = "gemini-3.8-flash"          # parsing, extraction, capture summaries
+    gemini_model_strong: str = "gemini-4-argon"          # event summaries, memory Q&A
+    gemini_embedding_model: str = "gemini-embedding-001"
     auto_create_tables: bool = False         # local dev with SQLite: create tables on startup
     cors_origins: str = "*"                  # comma-separated browser origins, e.g. https://app.example.com
     jwt_secret: str = ""                     # >= 32 chars; enables the app's own email/password login
