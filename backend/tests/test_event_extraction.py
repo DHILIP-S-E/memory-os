@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
-import app.services.bedrock_service as bedrock_service
+import app.services.llm_service as llm_service
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
@@ -140,7 +140,7 @@ def client(monkeypatch):
     app.dependency_overrides[get_db] = override
     monkeypatch.setattr(settings, "jwt_secret", "q" * 48)
     hostile = good(registration_url="javascript:alert(1)", evidence={"submission_deadline": "made up quote"})
-    monkeypatch.setattr(bedrock_service, "_invoke", lambda *a, **k: "Sure! " + json.dumps(hostile))
+    monkeypatch.setattr(llm_service, "_invoke", lambda *a, **k: "Sure! " + json.dumps(hostile))
     yield TestClient(app)
     app.dependency_overrides.clear()
 
