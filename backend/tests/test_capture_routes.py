@@ -14,7 +14,7 @@ from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401
 import app.database as database_module
-import app.services.bedrock_service as bedrock_service
+import app.services.llm_service as llm_service
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
@@ -46,7 +46,7 @@ def client(monkeypatch):
     monkeypatch.setattr(database_module, "AsyncSessionLocal", Session)  # the background task's own session
     monkeypatch.setattr(settings, "jwt_secret", "q" * 48)
     monkeypatch.setattr(settings, "capture_queue_url", "")           # lean deployment: no queue
-    monkeypatch.setattr(bedrock_service, "_invoke", lambda *a, **k: REPLY)
+    monkeypatch.setattr(llm_service, "_invoke", lambda *a, **k: REPLY)
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -76,9 +76,9 @@ def test_link_is_processed_too(client):
 
 def test_a_model_outage_never_leaves_the_note_stuck(client, monkeypatch):
     def down(*a, **k):
-        raise RuntimeError("bedrock unavailable")
+        raise RuntimeError("AI service unavailable")
 
-    monkeypatch.setattr(bedrock_service, "_invoke", down)
+    monkeypatch.setattr(llm_service, "_invoke", down)
     h = headers(client)
     created = client.post("/captures/note", headers=h, json={"content": "anything"})
     assert created.status_code == 201, "saving the note must not depend on the AI"
