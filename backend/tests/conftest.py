@@ -19,6 +19,8 @@ _BLANK = {
     "r2_access_key_id": "",
     "r2_secret_access_key": "",
     "r2_endpoint": "",
+    "fcm_project_id": "",
+    "fcm_credentials_file": "",
     "cognito_user_pool_id": "",
     "cognito_app_client_id": "",
     "allow_insecure_dev_auth": False,
