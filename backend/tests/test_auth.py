@@ -1,57 +1,46 @@
+"""Every request needs a valid token from this app; a misconfigured server fails closed."""
+
 import os
 
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
 
-import pytest
 from fastapi.testclient import TestClient
 
-from app.auth import validate_claims
 from app.config import settings
+from app.main import app
+from app.services.tokens import create_access_token, create_refresh_token
 
-ISS = "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc"
-
-
-def test_access_token_accepted():
-    claims = {"iss": ISS, "token_use": "access", "client_id": "app1", "sub": "u1"}
-    assert validate_claims(claims, ISS, "app1") == "u1"
+SECRET = "q" * 48
 
 
-def test_id_token_accepted():
-    claims = {"iss": ISS, "token_use": "id", "aud": "app1", "sub": "u1"}
-    assert validate_claims(claims, ISS, "app1") == "u1"
+def get_me(token):
+    return TestClient(app).get("/health/me", headers={"Authorization": f"Bearer {token}"})
 
 
-@pytest.mark.parametrize("claims", [
-    {"iss": "https://evil", "token_use": "access", "client_id": "app1", "sub": "u"},
-    {"iss": ISS, "token_use": "access", "client_id": "other-app", "sub": "u"},
-    {"iss": ISS, "token_use": "refresh", "client_id": "app1", "sub": "u"},
-    {"iss": ISS, "token_use": "access", "client_id": "app1"},
-    {"iss": ISS, "token_use": "access", "client_id": "app1", "sub": ""},
-    {},
-])
-def test_bad_claims_rejected(claims):
-    assert validate_claims(claims, ISS, "app1") is None
+def test_a_valid_access_token_identifies_the_user(monkeypatch):
+    monkeypatch.setattr(settings, "jwt_secret", SECRET)
+    r = get_me(create_access_token("u1", SECRET))
+    assert r.status_code == 200 and r.json()["user_id"] == "u1"
 
 
-def test_unconfigured_cognito_fails_closed(monkeypatch):
-    from app.main import app
+def test_a_forged_expired_or_wrong_kind_of_token_is_refused(monkeypatch):
+    monkeypatch.setattr(settings, "jwt_secret", SECRET)
+    for token in ("forged.token.value", create_access_token("u1", "x" * 48), create_refresh_token("u1", SECRET)):
+        assert get_me(token).status_code == 401
 
-    monkeypatch.setattr(settings, "cognito_user_pool_id", "")
+
+def test_without_a_secret_the_server_fails_closed(monkeypatch):
+    monkeypatch.setattr(settings, "jwt_secret", "")
     monkeypatch.setattr(settings, "allow_insecure_dev_auth", False)
-    r = TestClient(app).get("/health/me", headers={"Authorization": "Bearer forged.token.value"})
-    assert r.status_code == 503
+    assert get_me("forged.token.value").status_code == 503
 
 
-def test_missing_token_rejected():
-    from app.main import app
-
+def test_a_missing_token_is_refused():
     assert TestClient(app).get("/health/me").status_code in (401, 403)
 
 
-def test_dev_mode_is_explicit_opt_in(monkeypatch):
-    from app.main import app
-
-    monkeypatch.setattr(settings, "cognito_user_pool_id", "")
+def test_dev_mode_is_an_explicit_opt_in(monkeypatch):
+    monkeypatch.setattr(settings, "jwt_secret", "")
     monkeypatch.setattr(settings, "allow_insecure_dev_auth", True)
-    r = TestClient(app).get("/health/me", headers={"Authorization": "Bearer not-a-jwt"})
+    r = get_me("not-a-jwt")
     assert r.status_code == 200 and r.json()["user_id"] == "dev_user"
