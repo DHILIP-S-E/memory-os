@@ -1,92 +1,69 @@
 """
-Push device registration — the cloud half of the two-layer alarm needs to know
-where to send a notification.
+Phones that can receive push notifications (Firebase Cloud Messaging tokens).
 
-The app posts its FCM/APNs token; we create an SNS platform endpoint and
-subscribe it to the notifications topic with a filter policy on the user's id,
-so a publish tagged with user_id reaches only that user's devices.
+The app registers its token after sign-in and removes it on sign-out. A token belongs to
+one account at a time: if the phone signs in to another account, the token moves with it,
+so nobody receives someone else's reminders.
 """
 
-import json
-import logging
+from datetime import datetime, timezone
 
-import boto3
-from email_validator import EmailNotValidError, validate_email
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, field_validator
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user_id
-from app.config import settings
+from app.database import get_db
+from app.models.device import DeviceToken
+from app.validation import clean_text, one_of
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+PLATFORMS = {"android", "ios", "web", "fcm", "apns"}
 
 
-class DeviceRegistration(BaseModel):
+class DeviceIn(BaseModel):
     token: str
-    platform: str = "fcm"  # fcm | apns
+    platform: str = "android"
 
+    @field_validator("token")
+    @classmethod
+    def _token(cls, v):
+        return clean_text(v, "Device token", max_len=4096)
 
-def filter_policy(user_id: str) -> str:
-    return json.dumps({"user_id": [user_id]})
+    @field_validator("platform")
+    @classmethod
+    def _platform(cls, v):
+        return one_of(v.lower(), PLATFORMS, "Platform")
 
 
 @router.post("")
 async def register_device(
-    body: DeviceRegistration,
+    body: DeviceIn,
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ):
-    if not (settings.sns_platform_app_arn and settings.notification_topic_arn):
-        raise HTTPException(status_code=503, detail="Push notifications are not configured")
-    sns = boto3.client("sns", region_name=settings.aws_region)
-    try:
-        endpoint = sns.create_platform_endpoint(
-            PlatformApplicationArn=settings.sns_platform_app_arn,
-            Token=body.token,
-            CustomUserData=user_id,
-        )["EndpointArn"]
-        sns.subscribe(
-            TopicArn=settings.notification_topic_arn,
-            Protocol="application",
-            Endpoint=endpoint,
-            Attributes={"FilterPolicy": filter_policy(user_id)},
-            ReturnSubscriptionArn=True,
-        )
-    except Exception:
-        logger.exception("Device registration failed")
-        raise HTTPException(status_code=502, detail="Could not register device")
+    now = datetime.now(timezone.utc)
+    device = (await db.execute(select(DeviceToken).where(DeviceToken.token == body.token))).scalar_one_or_none()
+    if device is None:
+        db.add(DeviceToken(user_id=user_id, token=body.token, platform=body.platform, created_at=now, last_seen_at=now))
+    else:
+        device.user_id, device.platform, device.last_seen_at = user_id, body.platform, now
+    await db.commit()
     return {"registered": True}
 
 
-class EmailRegistration(BaseModel):
-    email: str
+class DeviceOut(BaseModel):
+    token: str
 
 
-@router.post("/email")
-async def register_email(
-    body: EmailRegistration,
+@router.post("/unregister")
+async def unregister_device(
+    body: DeviceOut,
     user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Email me my reminders: a cloud alarm channel that needs no mobile push setup.
-
-    SNS emails a confirmation link first (nothing is sent until the address is
-    confirmed), and the subscription is filtered to this user's reminders only."""
-    if not settings.notification_topic_arn:
-        raise HTTPException(status_code=503, detail="Reminder emails are not configured")
-    try:
-        email = validate_email(body.email.strip(), check_deliverability=False).normalized
-    except EmailNotValidError:
-        raise HTTPException(status_code=422, detail="Enter a valid email address")
-    try:
-        boto3.client("sns", region_name=settings.aws_region).subscribe(
-            TopicArn=settings.notification_topic_arn,
-            Protocol="email",
-            Endpoint=email,
-            Attributes={"FilterPolicy": filter_policy(user_id)},
-            ReturnSubscriptionArn=True,
-        )
-    except Exception:
-        logger.exception("Email subscription failed")
-        raise HTTPException(status_code=502, detail="Could not set up reminder emails")
-    return {"status": "pending_confirmation", "email": email,
-            "detail": "Check your inbox and click the confirmation link to start receiving reminders."}
+    """Called on sign-out so this phone stops getting the account's reminders."""
+    result = await db.execute(delete(DeviceToken).where(DeviceToken.token == body.token, DeviceToken.user_id == user_id))
+    await db.commit()
+    return {"removed": bool(result.rowcount)}
