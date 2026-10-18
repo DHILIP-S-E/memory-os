@@ -1,110 +1,97 @@
-import os
+"""Repeating reminders fire on the user's own clock, and always stop when told to."""
 
-os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://u:p@localhost/db")
-
-import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from itertools import islice
+from zoneinfo import ZoneInfo
 
 import pytest
 from hypothesis import given, strategies as st
 
-from app.config import settings
-from app.services import scheduling
-from app.services.recurrence import parse_rrule, to_schedule_expression
+from app.services.recurrence import next_occurrence, occurrences, parse_rrule
 
-START = datetime(2026, 10, 5, 9, 30, tzinfo=timezone.utc)  # a Monday
-
-
-@pytest.mark.parametrize("rule,expected", [
-    ("FREQ=DAILY", "cron(30 9 * * ? *)"),
-    ("RRULE:FREQ=WEEKLY;BYDAY=MO,WE", "cron(30 9 ? * MON,WED *)"),
-    ("FREQ=WEEKLY", "cron(30 9 ? * MON *)"),            # defaults to start's weekday
-    ("FREQ=MONTHLY", "cron(30 9 5 * ? *)"),
-    ("FREQ=MONTHLY;BYMONTHDAY=15", "cron(30 9 15 * ? *)"),
-    ("FREQ=YEARLY", "cron(30 9 5 10 ? *)"),
-    ("FREQ=DAILY;INTERVAL=3", "rate(3 days)"),
-])
-def test_supported_rules(rule, expected):
-    assert to_schedule_expression(rule, START) == expected
+UTC = timezone.utc
+IST = ZoneInfo("Asia/Kolkata")
+START = datetime(2026, 10, 5, 9, 30, tzinfo=IST)  # Monday 09:30 India time
 
 
-@pytest.mark.parametrize("rule", [
-    "", "junk", "FREQ", "BYDAY=MO", "FREQ=HOURLY", "FREQ=WEEKLY;INTERVAL=2",
-    "FREQ=DAILY;COUNT=3", "FREQ=WEEKLY;UNTIL=20261231T000000Z", "FREQ=WEEKLY;BYDAY=XX",
-    "FREQ=MONTHLY;BYMONTHDAY=40", "FREQ=DAILY;INTERVAL=0", "FREQ=DAILY;INTERVAL=x",
-])
-def test_unsupported_rules_return_none(rule):
-    assert to_schedule_expression(rule, START) is None
+def local(instants, tz=IST):
+    return [i.astimezone(tz).strftime("%a %Y-%m-%d %H:%M") for i in instants]
 
 
-def test_parse_rrule_strips_prefix_and_uppercases():
-    assert parse_rrule("rrule:freq=daily") == {"FREQ": "DAILY"}
+def first(rule, n=4, anchor=START, tz="Asia/Kolkata"):
+    return local(islice(occurrences(rule, anchor, tz), n), ZoneInfo(tz))
 
 
-CRON = re.compile(r"^cron\(\d{1,2} \d{1,2} [\d*?,A-Z]+ [\d*]+ [\d*?,A-Z]+ \*\)$|^cron\(\d{1,2} \d{1,2} \S+ \S+ \S+ \*\)$|^rate\(\d+ days\)$")
+def test_daily_at_the_same_local_time():
+    assert first("FREQ=DAILY", 3) == ["Mon 2026-10-05 09:30", "Tue 2026-10-06 09:30", "Wed 2026-10-07 09:30"]
+
+
+def test_every_third_day():
+    assert first("FREQ=DAILY;INTERVAL=3", 3) == ["Mon 2026-10-05 09:30", "Thu 2026-10-08 09:30", "Sun 2026-10-11 09:30"]
+
+
+def test_weekly_on_chosen_days_and_every_other_week():
+    assert first("RRULE:FREQ=WEEKLY;BYDAY=MO,WE", 3) == ["Mon 2026-10-05 09:30", "Wed 2026-10-07 09:30", "Mon 2026-10-12 09:30"]
+    assert first("FREQ=WEEKLY;INTERVAL=2", 3) == ["Mon 2026-10-05 09:30", "Mon 2026-10-19 09:30", "Mon 2026-11-02 09:30"]
+
+
+def test_monthly_skips_months_without_that_day():
+    anchor = datetime(2027, 1, 31, 8, 0, tzinfo=IST)
+    assert first("FREQ=MONTHLY", 3, anchor) == ["Sun 2027-01-31 08:00", "Wed 2027-03-31 08:00", "Mon 2027-05-31 08:00"]
+
+
+def test_yearly():
+    assert first("FREQ=YEARLY", 2) == ["Mon 2026-10-05 09:30", "Tue 2027-10-05 09:30"]
+
+
+def test_until_stops_the_rule_on_that_day():
+    assert first("FREQ=DAILY;UNTIL=20261007", 10) == ["Mon 2026-10-05 09:30", "Tue 2026-10-06 09:30", "Wed 2026-10-07 09:30"]
+
+
+def test_count_stops_after_that_many():
+    assert len(first("FREQ=DAILY;COUNT=2", 10)) == 2
+
+
+def test_the_local_time_holds_across_a_clock_change():
+    ny = ZoneInfo("America/New_York")
+    anchor = datetime(2026, 10, 30, 9, 0, tzinfo=ny)  # clocks go back on 1 November
+    times = list(islice(occurrences("FREQ=DAILY", anchor, "America/New_York"), 4))
+    assert [t.astimezone(ny).hour for t in times] == [9, 9, 9, 9]
+    assert times[2] - times[1] == timedelta(hours=25), "the night the clocks go back is an hour longer"
+
+
+def test_next_occurrence_is_strictly_after_the_given_time():
+    after = datetime(2026, 10, 6, 4, 0, tzinfo=UTC)  # 09:30 IST on Tue 6 Oct exactly
+    assert local([next_occurrence("FREQ=DAILY", START, after, "Asia/Kolkata")]) == ["Wed 2026-10-07 09:30"]
+
+
+def test_a_finished_rule_has_no_next_occurrence():
+    assert next_occurrence("FREQ=DAILY;COUNT=1", START, START, "Asia/Kolkata") is None
+    assert next_occurrence("FREQ=DAILY;UNTIL=20261005", START, START, "Asia/Kolkata") is None
+
+
+@pytest.mark.parametrize("rule", ["", "nonsense", "FREQ=HOURLY", "FREQ=SECONDLY", "FREQ=DAILY;INTERVAL=0",
+                                  "FREQ=DAILY;INTERVAL=x", "FREQ=WEEKLY;BYDAY=XX", "FREQ=MONTHLY;BYMONTHDAY=40",
+                                  "FREQ=DAILY;UNTIL=garbage"])
+def test_unsupported_or_malformed_rules_never_fire(rule):
+    assert list(occurrences(rule, START, "Asia/Kolkata")) == []
+
+
+def test_parse_rrule():
+    assert parse_rrule("RRULE:FREQ=WEEKLY;BYDAY=MO") == {"FREQ": "WEEKLY", "BYDAY": "MO"}
+    assert parse_rrule("FREQ=MINUTELY") is None
+    assert parse_rrule(None) is None
 
 
 @given(
-    st.sampled_from(["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]),
-    st.datetimes(min_value=datetime(2026, 1, 1), max_value=datetime(2035, 1, 1)),
+    st.sampled_from(["FREQ=DAILY", "FREQ=DAILY;INTERVAL=2", "FREQ=WEEKLY;BYDAY=MO,FR", "FREQ=MONTHLY", "FREQ=YEARLY"]),
+    st.datetimes(min_value=datetime(2024, 1, 1), max_value=datetime(2030, 1, 1), timezones=st.just(UTC)),
+    st.sampled_from(["UTC", "Asia/Kolkata", "America/New_York", "Europe/London"]),
 )
-def test_expression_uses_the_start_time_of_day(freq, start):
-    expr = to_schedule_expression(f"FREQ={freq}", start)
-    assert expr is not None and CRON.match(expr)
-    assert f"cron({start.minute} {start.hour} " in expr
-
-
-@given(st.text(max_size=40), st.datetimes(min_value=datetime(2026, 1, 1), max_value=datetime(2035, 1, 1)))
-def test_never_crashes_on_garbage(rule, start):
-    to_schedule_expression(rule, start)
-
-
-class FakeScheduler:
-    class exceptions:
-        class ResourceNotFoundException(Exception):
-            pass
-
-    def __init__(self):
-        self.created, self.deleted = [], []
-
-    def create_schedule(self, **kw):
-        self.created.append(kw)
-
-    def delete_schedule(self, **kw):
-        self.deleted.append(kw["Name"])
-
-
-@pytest.fixture
-def fake(monkeypatch):
-    f = FakeScheduler()
-    monkeypatch.setattr(scheduling, "_scheduler", lambda: f)
-    monkeypatch.setattr(settings, "scheduler_target_arn", "arn:target")
-    monkeypatch.setattr(settings, "scheduler_role_arn", "arn:role")
-    return f
-
-
-FUTURE = datetime(2030, 1, 7, 9, 30, tzinfo=timezone.utc)
-
-
-def test_recurring_reminder_gets_one_recurring_schedule(fake):
-    names = scheduling.schedule_reminder(
-        "r1", "u1", "Standup", "medium", FUTURE, ["-1h", "-1d"],
-        recurrence_rule="FREQ=WEEKLY;BYDAY=MO", timezone_name="Asia/Kolkata",
-    )
-    assert names == ["rem-r1-rec"] and len(fake.created) == 1
-    c = fake.created[0]
-    assert c["ScheduleExpression"] == "cron(30 9 ? * MON *)"
-    assert c["ScheduleExpressionTimezone"] == "Asia/Kolkata"
-    assert "ActionAfterCompletion" not in c, "recurring schedules must not self-delete"
-
-
-def test_unsupported_rule_falls_back_to_one_time_schedules(fake):
-    names = scheduling.schedule_reminder(
-        "r1", "u1", "t", "high", FUTURE, ["-1h"], recurrence_rule="FREQ=DAILY;COUNT=3"
-    )
-    assert len(names) == 2 and all(c["ScheduleExpression"].startswith("at(") for c in fake.created)
-
-
-def test_cancel_removes_the_recurring_schedule(fake):
-    scheduling.cancel_reminder("r1", FUTURE, [])
-    assert "rem-r1-rec" in fake.deleted
+def test_occurrences_are_strictly_increasing_and_start_at_the_anchor(rule, anchor, tz):
+    times = list(islice(occurrences(rule, anchor, tz), 5))
+    assert times, "a supported rule always fires"
+    assert times[0] >= anchor - timedelta(hours=1)  # the anchor day itself counts
+    assert all(a < b for a, b in zip(times, times[1:]))
+    nxt = next_occurrence(rule, anchor, times[0], tz)
+    assert nxt == times[1]
