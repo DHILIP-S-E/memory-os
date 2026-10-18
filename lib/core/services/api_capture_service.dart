@@ -80,6 +80,10 @@ class ApiCaptureService implements CaptureService {
     await _client.delete('/captures/$id');
   }
 
+  @override
+  Future<Capture> retryProcessing(String id) async =>
+      captureFromApi(await _client.post('/captures/$id/process'));
+
   String _extensionFor(CaptureType type) {
     switch (type) {
       case CaptureType.photo:
