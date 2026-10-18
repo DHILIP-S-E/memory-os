@@ -1,9 +1,9 @@
 /// Where the platform push token comes from (FCM on Android, APNs via FCM on iOS).
 ///
-/// The app ships with [NoPushTokenSource]; adding Firebase means implementing
-/// this interface with firebase_messaging and passing it in main.dart.
+/// [FirebasePushTokenSource] is used when the Firebase build settings are given;
+/// otherwise [NoPushTokenSource], and only the phone's local alarms ring.
 abstract class PushTokenSource {
-  /// 'fcm' or 'apns' — matches the backend's DeviceRegistration.platform.
+  /// 'android' or 'ios', as the backend's device registration expects.
   String get platform;
 
   /// Current token, or null if push is unavailable / permission denied.
