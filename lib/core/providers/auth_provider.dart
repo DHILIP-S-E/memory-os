@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:personal_memory_os/core/services/google_token_source.dart';
 import 'package:personal_memory_os/core/services/auth_service.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -23,8 +24,18 @@ class AuthProvider extends ChangeNotifier {
   /// How long to wait for the stored session before showing the login screen.
   final Duration sessionCheckTimeout;
 
+  /// Google sign-in, when configured for this build.
+  final GoogleTokenSource? _google;
+
+  /// Runs just before signing out, while the session is still valid (for example to stop this
+  /// phone receiving the account's push notifications). Failures never block signing out.
+  final Future<void> Function()? onSigningOut;
+
   AuthProvider(this._authService,
-      {this.sessionCheckTimeout = const Duration(seconds: 8)});
+      {this.sessionCheckTimeout = const Duration(seconds: 8), GoogleTokenSource? google, this.onSigningOut})
+      : _google = google;
+
+  bool get canUseGoogle => _google != null;
 
   AuthStatus _status = AuthStatus.unknown;
   AppUser? _user;
@@ -79,7 +90,34 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Sign in with Google. Returns false, with no error, if the user closed the Google sheet.
+  Future<bool> signInWithGoogle() async {
+    final google = _google;
+    if (google == null) return false;
+    try {
+      _error = null;
+      final token = await google.idToken();
+      if (token == null) return false;
+      _user = await _authService.signInWithGoogle(token);
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
+    try {
+      await onSigningOut?.call().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Never let a cleanup step stop someone signing out.
+    }
+    try {
+      await _google?.signOut();
+    } catch (_) {}
     await _authService.signOut();
     _user = null;
     _status = AuthStatus.unauthenticated;
