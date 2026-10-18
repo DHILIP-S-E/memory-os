@@ -286,9 +286,10 @@ async def apply_reminder_policy(
         )
         db.add(reminder)
         created.append(reminder)
-    await db.commit()
+    await db.flush()
     for reminder in created:
-        _schedule_cloud_layer(reminder)  # the cloud layer, same as a reminder made by hand
+        await _schedule_cloud_layer(db, reminder)  # queued with the reminders, in one transaction
+    await db.commit()
     return [r.to_dict() for r in created]
 
 
@@ -371,7 +372,7 @@ async def _stop_reminders(milestone_ids: set[str], user_id: str, db: AsyncSessio
     ids = milestones.reminders_to_stop([r.to_dict() for r in rows], milestone_ids)
     for reminder in rows:
         if reminder.id in ids:
-            _cancel_cloud_layer(reminder)  # cancels the schedule for its current fire time
+            await _cancel_cloud_layer(db, reminder)  # its pending deliveries are cancelled too
             reminder.status = "cancelled"
             reminder.updated_at = datetime.utcnow()
     return ids
