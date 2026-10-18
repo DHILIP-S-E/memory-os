@@ -5,6 +5,7 @@ import 'package:personal_memory_os/core/providers/capture_provider.dart';
 import 'package:personal_memory_os/core/services/camera_service.dart';
 import 'package:personal_memory_os/core/theme/app_theme.dart';
 import 'package:personal_memory_os/shared/widgets/capture_card.dart';
+import 'package:personal_memory_os/shared/widgets/retry_capture.dart';
 import 'package:personal_memory_os/shared/widgets/empty_state.dart';
 import 'package:personal_memory_os/features/capture/widgets/voice_recorder_sheet.dart';
 import 'package:personal_memory_os/features/capture/widgets/text_note_sheet.dart';
@@ -238,6 +239,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
             itemCount: provider.captures.length,
             itemBuilder: (_, i) => CaptureCard(
               capture: provider.captures[i],
+              onRetry: () => retryCapture(context, provider.captures[i].id),
             ),
           ),
         );
