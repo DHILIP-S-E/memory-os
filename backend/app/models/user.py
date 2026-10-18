@@ -15,6 +15,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(100), nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(200))
+    # Google's stable account id, set when the user signs in with Google. Accounts made only with
+    # Google have an empty password_hash, which can never match a password.
+    google_sub: Mapped[str | None] = mapped_column(String(255), unique=True)
     # Settings (spec 4.11). Quiet hours are hours of the day in `timezone`; null start/end = 10 PM to 7 AM.
     timezone: Mapped[str] = mapped_column(String(100), nullable=False, default="UTC")
     quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
