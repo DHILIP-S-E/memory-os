@@ -21,6 +21,7 @@ _BLANK = {
     "r2_endpoint": "",
     "fcm_project_id": "",
     "fcm_credentials_file": "",
+    "google_client_ids": "",
     "cognito_user_pool_id": "",
     "cognito_app_client_id": "",
     "allow_insecure_dev_auth": False,
