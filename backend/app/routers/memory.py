@@ -14,7 +14,6 @@ from app.validation import clean_text
 from app.auth import get_current_user_id
 from app.database import get_db
 from app.models.memory import MemoryDocument
-from app.services import knowledge_base
 from app.services.llm_service import answer_memory_question
 
 router = APIRouter()
@@ -91,19 +90,6 @@ async def ask_memory(
 
     Every answer is traceable to stored memory — no hallucination from training data.
     """
-    # Step 0: semantic retrieval from the Bedrock Knowledge Base (when enabled)
-    kb_ids = knowledge_base.retrieve_doc_ids(body.question, user_id)
-    if kb_ids:
-        result = await db.execute(
-            select(MemoryDocument).where(
-                MemoryDocument.user_id == user_id, MemoryDocument.id.in_(kb_ids)
-            )
-        )
-        by_id = {d.id: d for d in result.scalars().all()}
-        ranked = [by_id[i] for i in kb_ids if i in by_id]
-        if ranked:
-            return answer_memory_question(body.question, ranked)
-
     # Step 1: keyword search for relevant documents
     words = body.question.lower().split()[:6]
     conditions = []
