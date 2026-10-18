@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # own alarm still rings. The credentials file is a Firebase service-account key, never in git.
     fcm_project_id: str = ""
     fcm_credentials_file: str = ""
+    # Google sign-in: the OAuth client IDs whose ID tokens are accepted (web, Android, iOS),
+    # comma-separated. Empty = the "Sign in with Google" route reports "not configured".
+    google_client_ids: str = ""
     auto_create_tables: bool = False         # local dev with SQLite: create tables on startup
     cors_origins: str = "*"                  # comma-separated browser origins, e.g. https://app.example.com
     jwt_secret: str = ""                     # >= 32 chars; enables the app's own email/password login
