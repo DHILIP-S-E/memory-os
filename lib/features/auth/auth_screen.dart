@@ -61,6 +61,26 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  Future<void> _handleGoogle() async {
+    if (_busy) return;
+    final provider = context.read<AuthProvider>();
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final ok = await provider.signInWithGoogle();
+    if (!mounted) return;
+    if (ok) {
+      context.go(AppRoutes.today);
+      return;
+    }
+    setState(() {
+      _busy = false;
+      // Closing the Google sheet is not an error; anything else is explained.
+      _error = provider.error == null ? null : friendlyError(provider.error!);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -217,6 +237,22 @@ class _AuthScreenState extends State<AuthScreen> {
                   : Text(_isSignUp ? 'Create account' : 'Sign in'),
             ),
           ),
+        ),
+        Consumer<AuthProvider>(
+          builder: (_, p, __) => !p.canUseGoogle
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('google-sign-in'),
+                      onPressed: (p.status == AuthStatus.unknown || _busy) ? null : _handleGoogle,
+                      icon: const Icon(Icons.account_circle_outlined),
+                      label: const Text('Continue with Google'),
+                    ),
+                  ),
+                ),
         ),
       ],
     );
