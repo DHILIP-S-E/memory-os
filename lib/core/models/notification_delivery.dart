@@ -45,6 +45,7 @@ class NotificationDelivery {
       'failed' => 'Failed',
       'retrying' => 'Retrying',
       'cancelled' => 'Skipped',
+      'skipped' => 'Not sent',
       _ => status,
     };
   }
@@ -57,6 +58,9 @@ class NotificationDelivery {
       'sent' => 'Accepted by the notification service. This does not prove it was shown.',
       'failed' => 'The notification could not be sent.',
       'cancelled' => 'Not sent, because the reminder was no longer needed.',
+      'skipped' => error == 'no device registered'
+          ? 'No phone was registered for push. Your phone\'s own alarm still rings.'
+          : 'Push notifications are not set up yet. Your phone\'s own alarm still rings.',
       _ => null,
     };
   }
