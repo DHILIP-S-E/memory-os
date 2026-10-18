@@ -14,6 +14,7 @@ from app.config import settings
 
 _BLANK = {
     "jwt_secret": "",
+    "gemini_api_key": "",
     "cognito_user_pool_id": "",
     "cognito_app_client_id": "",
     "allow_insecure_dev_auth": False,
