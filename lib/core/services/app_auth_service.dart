@@ -133,5 +133,8 @@ class AppAuthService implements AuthService {
           {'email': email, 'password': password, 'display_name': displayName});
 
   @override
+  Future<AppUser> signInWithGoogle(String idToken) => _authenticate('/auth/google', {'id_token': idToken});
+
+  @override
   Future<void> signOut() => _store.clear();
 }
