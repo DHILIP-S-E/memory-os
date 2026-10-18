@@ -190,6 +190,23 @@ class CaptureProvider extends ChangeNotifier {
     }
   }
 
+  /// Ask the server to read a failed capture again. Errors are recorded and rethrown so the
+  /// screen can say what went wrong.
+  Future<void> retryProcessing(String id) async {
+    try {
+      final updated = await _service.retryProcessing(id);
+      final index = _captures.indexWhere((c) => c.id == id);
+      if (index != -1) _captures[index] = updated;
+      _error = null;
+      _syncPolling(); // follow it until it is read
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   void updateCaptureLocally(Capture updated) {
     final index = _captures.indexWhere((c) => c.id == updated.id);
     if (index != -1) {
