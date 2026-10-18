@@ -88,8 +88,15 @@ def client(monkeypatch):
     app.dependency_overrides[get_db] = override
     monkeypatch.setattr(settings, "jwt_secret", "q" * 48)
     scheduled, cancelled = [], []
-    monkeypatch.setattr(events_module, "_schedule_cloud_layer", lambda r: scheduled.append(r.id))
-    monkeypatch.setattr(events_module, "_cancel_cloud_layer", lambda r: cancelled.append(r.id))
+
+    async def fake_schedule(db, r):
+        scheduled.append(r.id)
+
+    async def fake_cancel(db, r):
+        cancelled.append(r.id)
+
+    monkeypatch.setattr(events_module, "_schedule_cloud_layer", fake_schedule)
+    monkeypatch.setattr(events_module, "_cancel_cloud_layer", fake_cancel)
     c = TestClient(app)
     c.scheduled, c.cancelled = scheduled, cancelled
     yield c
