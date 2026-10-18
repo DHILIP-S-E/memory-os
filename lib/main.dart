@@ -41,6 +41,9 @@ import 'package:personal_memory_os/core/sync/prefs_store.dart';
 import 'package:personal_memory_os/core/sync/sync_coordinator.dart';
 import 'package:personal_memory_os/core/widget/home_widget_bridge.dart';
 import 'package:personal_memory_os/core/widget/widget_sync.dart';
+import 'package:personal_memory_os/core/config.dart';
+import 'package:personal_memory_os/core/services/firebase_push_token_source.dart';
+import 'package:personal_memory_os/core/services/google_token_source.dart';
 import 'package:personal_memory_os/core/services/timezone_sync.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 
@@ -120,8 +123,9 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
       _authService = auth;
       _aiService = ApiAiService(client);
       _accountService = ApiAccountService(client);
-      // Swap NoPushTokenSource for a firebase_messaging-backed source to enable cloud push.
-      _push = PushRegistration(ApiDeviceService(client), NoPushTokenSource(), widget.store)
+      // Push needs the Firebase build settings; without them only local alarms ring.
+      final PushTokenSource pushSource = AppConfig.pushEnabled ? FirebasePushTokenSource() : NoPushTokenSource();
+      _push = PushRegistration(ApiDeviceService(client), pushSource, widget.store)
         ..listenForRefresh();
       _reminders = ReminderProvider(
           OfflineReminderService(remoteReminders, queue, widget.store));
@@ -151,7 +155,13 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
       _memory = MemoryProvider(StubMemoryService(), _aiService);
     }
 
-    _auth = AuthProvider(_authService)..checkAuthState();
+    _auth = AuthProvider(
+      _authService,
+      google: widget.useRealBackend && AppConfig.googleSignInEnabled
+          ? PluginGoogleTokenSource(AppConfig.googleServerClientId)
+          : null,
+      onSigningOut: () async => _push?.unregister(),
+    )..checkAuthState();
     _auth.addListener(() {
       if (_auth.isAuthenticated) {
         _push?.register();
