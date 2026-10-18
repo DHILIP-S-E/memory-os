@@ -124,9 +124,10 @@ async def create_reminder(
         updated_at=now,
     )
     db.add(reminder)
+    await db.flush()  # fills in defaults such as status before scheduling
+    await _schedule_cloud_layer(db, reminder)
     await db.commit()
     await db.refresh(reminder)
-    _schedule_cloud_layer(reminder)
     return reminder.to_dict()
 
 
@@ -165,7 +166,7 @@ async def update_reminder(
     db: AsyncSession = Depends(get_db),
 ):
     reminder = await _get_owned(reminder_id, user_id, db)
-    _cancel_cloud_layer(reminder)  # before edits: cancels the OLD fire times
+    await _cancel_cloud_layer(db, reminder)  # before edits: cancels the OLD fire times
     if body.title is not None:
         reminder.title = body.title
     if body.description is not None:
@@ -179,9 +180,9 @@ async def update_reminder(
     if body.alarm_enabled is not None:
         reminder.alarm_enabled = body.alarm_enabled
     reminder.updated_at = datetime.utcnow()
+    await _schedule_cloud_layer(db, reminder)  # same fire time again re-arms, never duplicates
     await db.commit()
     await db.refresh(reminder)
-    _schedule_cloud_layer(reminder)
     return reminder.to_dict()
 
 
@@ -192,7 +193,7 @@ async def delete_reminder(
     db: AsyncSession = Depends(get_db),
 ):
     reminder = await _get_owned(reminder_id, user_id, db)
-    _cancel_cloud_layer(reminder)
+    await _cancel_cloud_layer(db, reminder)
     await db.delete(reminder)
     await db.commit()
     return {"deleted": reminder_id}
@@ -200,28 +201,14 @@ async def delete_reminder(
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _schedule_cloud_layer(reminder: Reminder) -> None:
-    """Cloud layer of the two-layer alarm (R1.5). Best-effort: the device layer
-    still fires if this fails, and the failure is logged, never silent."""
-    if not reminder.scheduled_at or reminder.status != "active":
-        return
-    try:
-        scheduling.schedule_reminder(
-            reminder.id, reminder.user_id, reminder.title, reminder.priority,
-            reminder.scheduled_at, json.loads(reminder.offsets or "[]"),
-            reminder.depends_on_id, reminder.recurrence_rule, reminder.timezone,
-        )
-    except Exception:
-        logger.exception("Cloud scheduling failed for reminder %s", reminder.id)
+async def _schedule_cloud_layer(db: AsyncSession, reminder: Reminder) -> None:
+    """Server-side layer of the two-layer alarm: queue the reminder's deliveries in the same
+    transaction as the reminder itself, so it is never reported saved without them."""
+    await scheduling.schedule_reminder(db, reminder)
 
 
-def _cancel_cloud_layer(reminder: Reminder) -> None:
-    try:
-        scheduling.cancel_reminder(
-            reminder.id, reminder.scheduled_at, json.loads(reminder.offsets or "[]")
-        )
-    except Exception:
-        logger.exception("Cloud schedule cancel failed for reminder %s", reminder.id)
+async def _cancel_cloud_layer(db: AsyncSession, reminder: Reminder) -> None:
+    await scheduling.cancel_reminder(db, reminder)
 
 
 async def _get_owned(reminder_id: str, user_id: str, db: AsyncSession) -> Reminder:
