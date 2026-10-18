@@ -15,6 +15,9 @@ abstract class AuthService {
   Future<AppUser?> getCurrentUser();
   Future<AppUser> signInWithEmail(String email, String password);
   Future<AppUser> signUp(String email, String password, String displayName);
+
+  /// Sign in with an ID token from Google; the backend creates or links the account.
+  Future<AppUser> signInWithGoogle(String idToken);
   Future<void> signOut();
 }
 
@@ -48,6 +51,12 @@ class StubAuthService implements AuthService {
       email: email,
       displayName: displayName,
     );
+    return _currentUser!;
+  }
+
+  @override
+  Future<AppUser> signInWithGoogle(String idToken) async {
+    _currentUser = AppUser(id: 'google_${idToken.hashCode.abs()}', email: 'google.user@example.com', displayName: 'Google user');
     return _currentUser!;
   }
 
