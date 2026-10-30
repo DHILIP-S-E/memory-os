@@ -73,3 +73,7 @@ lib/aws/amplifyconfiguration_real.dart
 .DS_Store
 Thumbs.db
 .claude/settings.json
+
+# Local build settings and server keys (Firebase, Google). Never commit.
+dart_defines.local.json
+backend/secrets/
