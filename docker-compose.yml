@@ -25,6 +25,8 @@ services:
     environment:
       DATABASE_URL: postgresql://pmos:pmos@db:5432/personal_memory_os
     ports: ["8080:8080"]
+    volumes:
+      - ./backend/secrets:/app/secrets:ro   # server keys (git-ignored), e.g. the Firebase push key
     depends_on:
       db: { condition: service_healthy }
 
@@ -36,6 +38,8 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql://pmos:pmos@db:5432/personal_memory_os
+    volumes:
+      - ./backend/secrets:/app/secrets:ro   # server keys (git-ignored), e.g. the Firebase push key
     depends_on:
       db: { condition: service_healthy }
       api: { condition: service_started }
