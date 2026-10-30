@@ -36,6 +36,7 @@ class SettingsIn(BaseModel):
     quiet_hours_enabled: Optional[bool] = None
     quiet_hours_start: Optional[int] = Field(None, ge=0, le=23)
     quiet_hours_end: Optional[int] = Field(None, ge=0, le=23)
+    ai_enabled: Optional[bool] = None
 
     @field_validator("timezone")
     @classmethod
@@ -71,6 +72,8 @@ async def update_settings(
         user.quiet_hours_start = body.quiet_hours_start
     if body.quiet_hours_end is not None:
         user.quiet_hours_end = body.quiet_hours_end
+    if body.ai_enabled is not None:
+        user.ai_enabled = body.ai_enabled
     if user.quiet_hours_start is not None and user.quiet_hours_start == user.quiet_hours_end:
         raise HTTPException(status_code=422, detail="Quiet hours need different start and end hours")
     await db.commit()

@@ -17,6 +17,7 @@ from app.validation import clean_text, one_of, optional_http_url, real_timezone
 from app.routers.reminders import _cancel_cloud_layer, _schedule_cloud_layer
 from app.services import milestones
 from app.auth import get_current_user_id
+from app.services.ai_consent import require_ai
 from app.database import get_db
 from app.models.event import Event, EventDeadline
 from app.models.capture import Capture
@@ -472,7 +473,7 @@ async def _capture_counts(event_id: str, user_id: str, db: AsyncSession) -> dict
 @router.post("/{event_id}/generate-summary", status_code=status.HTTP_201_CREATED)
 async def generate_event_summary(
     event_id: str,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_ai),
     db: AsyncSession = Depends(get_db),
 ):
     """

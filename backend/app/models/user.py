@@ -23,6 +23,9 @@ class User(Base):
     quiet_hours_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     quiet_hours_start: Mapped[int | None] = mapped_column(SmallInteger)
     quiet_hours_end: Mapped[int | None] = mapped_column(SmallInteger)
+    # Consent to send captured content to the AI (spec 11). New accounts start with it off and
+    # turn it on themselves; accounts from before this setting keep their existing behaviour.
+    ai_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
@@ -38,4 +41,5 @@ class User(Base):
             "quiet_hours_enabled": self.quiet_hours_enabled,
             "quiet_hours_start": DEFAULT_START if self.quiet_hours_start is None else self.quiet_hours_start,
             "quiet_hours_end": DEFAULT_END if self.quiet_hours_end is None else self.quiet_hours_end,
+            "ai_enabled": bool(self.ai_enabled),
         }

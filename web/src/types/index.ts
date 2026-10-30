@@ -142,7 +142,8 @@ export interface AIResult {
   summary: string;
   topics: string[];
   key_points: string[];
-  actions: string[];
+  /** Plain text, or { title, due_at } as the backend now returns. */
+  actions: Array<string | { title?: string | null; due_at?: string | null }>;
 }
 
 export interface Capture {

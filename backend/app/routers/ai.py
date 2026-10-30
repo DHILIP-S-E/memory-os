@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from app.auth import get_current_user_id
+from app.services.ai_consent import require_ai
 import logging
 
 from app.services.gemini import AIUnavailable
@@ -45,7 +46,7 @@ class ExtractEventRequest(BaseModel):
 @router.post("/parse-reminder")
 async def parse_reminder_endpoint(
     body: ParseReminderRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_ai),
 ):
     """
     Parse natural language into a structured reminder.
@@ -76,7 +77,7 @@ async def parse_reminder_endpoint(
 @router.post("/extract-event")
 async def extract_event_endpoint(
     body: ExtractEventRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_ai),
 ):
     """
     Extract structured event info from pasted text or a URL description.

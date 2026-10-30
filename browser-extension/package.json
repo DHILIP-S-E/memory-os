@@ -1,0 +1,10 @@
+{
+  "name": "personal-memory-os-browser-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capture the current page into Personal Memory OS, after you review it.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}

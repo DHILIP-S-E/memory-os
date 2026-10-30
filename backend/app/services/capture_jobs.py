@@ -16,6 +16,7 @@ from app.config import settings
 from app.models.capture import Capture
 from app.models.job import Job
 from app.services import jobs, media_ai, storage
+from app.services.ai_consent import ai_allowed
 from app.services.capture_ai import summarise_text
 
 PROCESS = "capture.process"
@@ -49,6 +50,11 @@ async def process_capture(db: AsyncSession, job: Job, payload: dict) -> None:
     capture = await db.get(Capture, payload["capture_id"])
     if capture is None or capture.user_id != job.user_id:
         return  # deleted since it was queued
+    if capture.capture_type != "link" and not await ai_allowed(db, capture.user_id):
+        # No consent to send it to the AI: keep it as saved, unread.
+        capture.processing_status = "uploaded"
+        capture.updated_at = datetime.now(UTC)
+        return
     capture.processing_status = "processing"
     capture.updated_at = datetime.now(UTC)
     await db.commit()  # the app can show "processing" while the model works

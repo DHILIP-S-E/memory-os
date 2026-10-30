@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personal Memory OS</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <strong>Personal Memory OS</strong>
+    <button id="signout-btn" class="link" hidden>Sign out</button>
+  </header>
+
+  <main>
+    <!-- 1. Sign in -->
+    <section id="signin" hidden>
+      <h1>Sign in</h1>
+      <p class="hint">Use the account you use in the app.</p>
+      <form id="signin-form">
+        <label>Email <input id="email" type="email" autocomplete="username" required></label>
+        <label>Password <input id="password" type="password" autocomplete="current-password" required></label>
+        <button id="signin-btn" type="submit">Sign in</button>
+      </form>
+      <p id="signin-msg" class="msg" role="alert"></p>
+    </section>
+
+    <!-- 2. Capture this page -->
+    <section id="capture" hidden>
+      <h1>Capture this page</h1>
+      <p id="page-title" class="page-title"></p>
+      <p id="page-url" class="hint"></p>
+      <label id="selection-row" class="check" hidden>
+        <input id="use-selection" type="checkbox" checked> Use only the text I selected
+      </label>
+      <p class="notice">
+        When you press <b>Extract with AI</b>, the text of this page (<span id="chars">0</span> characters)
+        is sent to your Personal Memory OS account and read by Amazon Nova. Nothing is saved until you review it.
+      </p>
+      <button id="extract-btn">Extract with AI</button>
+      <button id="memory-btn" class="secondary">Save the link to my memory</button>
+      <p id="capture-msg" class="msg" role="alert"></p>
+    </section>
+
+    <!-- 3. Review -->
+    <section id="review" hidden>
+      <h1>Review what was found</h1>
+      <p class="hint">Check each field. Empty fields were not stated on the page, so nothing was guessed.</p>
+      <form id="review-form" novalidate>
+        <label>Title <input id="f-title" maxlength="500"></label>
+        <label>Type <select id="f-type"></select></label>
+        <div class="field">
+          <label>Starts <input id="f-start_at" type="datetime-local"></label>
+          <small id="n-start_at"></small>
+        </div>
+        <div class="field">
+          <label>Ends <input id="f-end_at" type="datetime-local"></label>
+          <small id="n-end_at"></small>
+        </div>
+        <div class="field">
+          <label>Registration deadline <input id="f-registration_deadline" type="datetime-local"></label>
+          <small id="n-registration_deadline"></small>
+        </div>
+        <div class="field">
+          <label>Submission deadline <input id="f-submission_deadline" type="datetime-local"></label>
+          <small id="n-submission_deadline"></small>
+        </div>
+        <div class="field">
+          <label>Registration link <input id="f-registration_url" type="url"></label>
+          <small id="n-registration_url"></small>
+        </div>
+        <label>Event link <input id="f-event_url" type="url"></label>
+        <label>Location <input id="f-location" maxlength="500"></label>
+        <label class="check"><input id="f-reminders" type="checkbox" checked> Create reminders for this event</label>
+        <button id="save-btn" type="submit">Save event</button>
+        <button id="back-btn" type="button" class="secondary">Back</button>
+      </form>
+      <p id="review-msg" class="msg" role="alert"></p>
+    </section>
+
+    <!-- 4. Done -->
+    <section id="done" hidden>
+      <h1>Saved</h1>
+      <p id="done-text"></p>
+      <p><a id="done-link" href="#" target="_blank" rel="noopener">Open in Personal Memory OS</a></p>
+      <button id="again-btn" class="secondary">Capture another page</button>
+    </section>
+  </main>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

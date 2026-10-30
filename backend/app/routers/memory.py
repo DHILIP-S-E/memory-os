@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.validation import clean_text
 from app.auth import get_current_user_id
+from app.services.ai_consent import require_ai
 from app.database import get_db
 from app.models.memory import MemoryDocument
 from app.services.llm_service import answer_memory_question
@@ -75,7 +76,7 @@ async def search_memory(
 @router.post("/ask")
 async def ask_memory(
     body: AskRequest,
-    user_id: str = Depends(get_current_user_id),
+    user_id: str = Depends(require_ai),
     db: AsyncSession = Depends(get_db),
 ):
     """

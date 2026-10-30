@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Personal Memory OS",
+  "version": "1.0.0",
+  "description": "Capture the page you are on, review what the AI found, and save it as an event with reminders.",
+  "minimum_chrome_version": "110",
+  "action": {
+    "default_title": "Capture this page",
+    "default_popup": "popup.html"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["https://wrducpxx4p.ap-south-1.awsapprunner.com/*"]
+}

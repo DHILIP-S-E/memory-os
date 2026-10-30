@@ -17,6 +17,9 @@ import {
 import { listEvents } from '../events/eventsApi';
 import type { Capture, AIResult } from '../../types/index';
 import { apiErrorMessage } from '../../lib/apiError';
+import { itemText } from '../../lib/itemText';
+import { reminderFromAction, type ActionItem } from '../../lib/actionReminder';
+import { createReminder } from '../reminders/remindersApi';
 
 type CaptureTab = 'note' | 'link' | 'photo' | 'document';
 
@@ -31,6 +34,39 @@ const CAPTURE_ICONS: Record<string, string> = {
 // ──────────────────────────────────────────────────────────────────────────────
 // AI Result expand panel
 // ──────────────────────────────────────────────────────────────────────────────
+function ActionRow({ action }: { action: ActionItem }) {
+  const queryClient = useQueryClient();
+  const draft = reminderFromAction(action);
+  const [state, setState] = useState<'idle' | 'saving' | 'done'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  async function addReminder() {
+    if (!draft) return;
+    setState('saving');
+    setError(null);
+    try {
+      await createReminder(draft);
+      await queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      setState('done');
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, 'Could not create the reminder'));
+      setState('idle');
+    }
+  }
+
+  return (
+    <li className="flex items-start justify-between gap-3 list-none">
+      <span>{itemText(action)}</span>
+      {draft && (
+        <Button size="sm" variant="secondary" disabled={state !== 'idle'} onClick={addReminder}>
+          {state === 'done' ? 'Reminder added' : state === 'saving' ? 'Adding…' : 'Make reminder'}
+        </Button>
+      )}
+      {error && <span className="text-error text-xs w-full">{error}</span>}
+    </li>
+  );
+}
+
 function AiResultPanel({ result }: { result: AIResult }) {
   return (
     <div className="mt-3 bg-background rounded-lg p-3 space-y-2 border border-border text-sm">
@@ -59,8 +95,8 @@ function AiResultPanel({ result }: { result: AIResult }) {
       {result.actions.length > 0 && (
         <div>
           <p className="text-textMuted text-xs mb-1">Actions</p>
-          <ul className="list-disc list-inside text-textSecondary space-y-0.5">
-            {result.actions.map((a, i) => <li key={i}>{a}</li>)}
+          <ul className="text-textSecondary space-y-2">
+            {result.actions.map((a, i) => <ActionRow key={i} action={a} />)}
           </ul>
         </div>
       )}
