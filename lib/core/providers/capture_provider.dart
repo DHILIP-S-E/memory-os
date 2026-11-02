@@ -19,7 +19,10 @@ class CaptureProvider extends ChangeNotifier {
   final Duration? pollInterval;
   Timer? _pollTimer;
 
-  CaptureProvider(this._service, {KeyValueStore? store, this.pollInterval})
+  /// Called after the user successfully captures something (Scroll Guard uses it to end a session).
+  final VoidCallback? onCaptured;
+
+  CaptureProvider(this._service, {KeyValueStore? store, this.pollInterval, this.onCaptured})
       : _store = store;
 
   /// True while any capture is waiting for or undergoing AI processing.
@@ -120,6 +123,7 @@ class CaptureProvider extends ChangeNotifier {
       );
       _captures.insert(0, capture);
       _syncPolling();
+      onCaptured?.call();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -142,6 +146,7 @@ class CaptureProvider extends ChangeNotifier {
       );
       _captures.insert(0, capture);
       _syncPolling();
+      onCaptured?.call();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -158,6 +163,7 @@ class CaptureProvider extends ChangeNotifier {
       final capture = await _service.saveTextNote(text: text, eventId: eventId);
       _captures.insert(0, capture);
       _syncPolling();
+      onCaptured?.call();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -171,6 +177,7 @@ class CaptureProvider extends ChangeNotifier {
       final capture = await _service.saveLink(url: url, eventId: eventId);
       _captures.insert(0, capture);
       _syncPolling();
+      onCaptured?.call();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
