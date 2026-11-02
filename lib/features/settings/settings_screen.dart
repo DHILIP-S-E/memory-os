@@ -6,6 +6,7 @@ import 'package:personal_memory_os/core/services/account_service.dart';
 import 'package:personal_memory_os/core/theme/app_theme.dart';
 import 'package:personal_memory_os/core/widget/home_widget_bridge.dart';
 import 'package:personal_memory_os/features/settings/reminder_settings_section.dart';
+import 'package:personal_memory_os/features/settings/scroll_guard_settings_section.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -33,6 +34,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SliverToBoxAdapter(child: ReminderSettingsSection()),
+            const SliverToBoxAdapter(child: ScrollGuardSettingsSection()),
             _buildSection('Your data', [
               _SettingsTile(
                 icon: Icons.download_outlined,
