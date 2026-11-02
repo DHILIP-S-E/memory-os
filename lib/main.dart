@@ -11,6 +11,8 @@ import 'package:personal_memory_os/core/providers/reminder_provider.dart';
 import 'package:personal_memory_os/core/providers/event_provider.dart';
 import 'package:personal_memory_os/core/providers/capture_provider.dart';
 import 'package:personal_memory_os/core/providers/memory_provider.dart';
+import 'package:personal_memory_os/core/scroll_guard/scroll_guard.dart';
+import 'package:personal_memory_os/core/scroll_guard/scroll_guard_host.dart';
 
 // Abstract service interfaces (+ stub implementations, used when USE_REAL_BACKEND=false)
 import 'package:personal_memory_os/core/services/account_service.dart';
@@ -101,6 +103,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
   late final EventProvider _events;
   late final CaptureProvider _captures;
   late final MemoryProvider _memory;
+  late final ScrollGuard _scrollGuard;
   late final GoRouter _router;
   SyncCoordinator? _sync;
   PushRegistration? _push;
@@ -111,6 +114,8 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
   @override
   void initState() {
     super.initState();
+
+    _scrollGuard = ScrollGuard(widget.store)..load();
 
     if (widget.useRealBackend) {
       final auth = AppAuthService();
@@ -129,7 +134,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
         ..listenForRefresh();
       _reminders = ReminderProvider(
           OfflineReminderService(remoteReminders, queue, widget.store));
-      _captures = CaptureProvider(OfflineCaptureService(remoteCaptures, queue), store: widget.store, pollInterval: const Duration(seconds: 5));
+      _captures = CaptureProvider(OfflineCaptureService(remoteCaptures, queue), store: widget.store, pollInterval: const Duration(seconds: 5), onCaptured: _scrollGuard.onCaptured);
       _events = EventProvider(ApiEventService(client));
       _memory = MemoryProvider(ApiMemoryService(client), _aiService);
 
@@ -150,7 +155,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
       _aiService = StubAiService();
       _accountService = StubAccountService();
       _reminders = ReminderProvider(StubReminderService());
-      _captures = CaptureProvider(StubCaptureService(), store: widget.store);
+      _captures = CaptureProvider(StubCaptureService(), store: widget.store, onCaptured: _scrollGuard.onCaptured);
       _events = EventProvider(StubEventService());
       _memory = MemoryProvider(StubMemoryService(), _aiService);
     }
@@ -206,6 +211,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
   @override
   void dispose() {
     _shareSub?.cancel();
+    _scrollGuard.dispose();
     _widgetSync?.dispose();
     _sync?.dispose();
     _push?.dispose();
@@ -225,12 +231,17 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
         ChangeNotifierProvider.value(value: _events),
         ChangeNotifierProvider.value(value: _captures),
         ChangeNotifierProvider.value(value: _memory),
+        ChangeNotifierProvider.value(value: _scrollGuard),
       ],
       child: MaterialApp.router(
         title: 'Personal Memory OS',
         theme: AppTheme.light,
         routerConfig: _router,
         debugShowCheckedModeBanner: false,
+        builder: (context, child) => ScrollGuardHost(
+          onCapture: () => _router.go(AppRoutes.capture),
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
     );
   }
