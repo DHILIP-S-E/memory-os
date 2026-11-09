@@ -19,6 +19,9 @@ class OtherAppsWatcher with WidgetsBindingObserver {
   final Duration interval;
 
   DateTime? _lastNotified;
+  bool _lastWasBreak = false;
+  bool _checking = false;
+  bool _disposed = false;
   Timer? _timer;
 
   OtherAppsWatcher(
@@ -36,6 +39,7 @@ class OtherAppsWatcher with WidgetsBindingObserver {
   }
 
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
   }
@@ -45,26 +49,35 @@ class OtherAppsWatcher with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) check();
   }
 
-  /// Sends at most one notification per [cooldown]. Returns true if one was sent.
+  /// Sends at most one notification per [cooldown], except that the stronger "break" message may
+  /// follow a gentle nudge. Returns true if one was sent.
   Future<bool> check() async {
     final s = guard.settings;
-    if (!s.enabled || !s.watchOtherApps || s.watchedApps.isEmpty || !source.supported) return false;
-    final last = _lastNotified;
-    if (last != null && _now().difference(last) < cooldown) return false;
-    if (!await source.hasAccess()) return false;
+    if (_checking || !s.enabled || !s.watchOtherApps || s.watchedApps.isEmpty || !source.supported) return false;
+    // Claimed before the first await, so a timer tick and a resume cannot both notify.
+    _checking = true;
+    try {
+      if (!await source.hasAccess() || _disposed) return false;
+      final minutes = await source.foregroundMinutes(s.watchedApps.toSet(), windowMinutes);
+      if (_disposed || minutes < s.nudgeAfterMinutes) return false;
 
-    final minutes = await source.foregroundMinutes(s.watchedApps.toSet(), windowMinutes);
-    if (minutes < s.nudgeAfterMinutes) return false;
+      final long = minutes >= s.breakAfterMinutes;
+      final last = _lastNotified;
+      final coolingDown = last != null && _now().difference(last) < cooldown;
+      if (coolingDown && !(long && !_lastWasBreak)) return false;
 
-    _lastNotified = _now();
-    final long = minutes >= s.breakAfterMinutes;
-    await notify(
-      long ? 'Time for a break' : "You've been scrolling for $minutes min",
-      long
-          ? "That's $minutes minutes in your social apps this hour. Capture one thing from today instead."
-          : 'Capture a quick memory instead?',
-    );
-    guard.onExternalPrompt(minutes);
-    return true;
+      _lastNotified = _now();
+      _lastWasBreak = long;
+      await notify(
+        long ? 'Time for a break' : "You've been scrolling for $minutes min",
+        long
+            ? "That's $minutes minutes in your social apps this hour. Capture one thing from today instead."
+            : 'Capture a quick memory instead?',
+      );
+      if (!_disposed) guard.onExternalPrompt(minutes);
+      return true;
+    } finally {
+      _checking = false;
+    }
   }
 }
