@@ -19,6 +19,11 @@ class NotificationService {
   static const _channelName = 'Reminders';
   static const _channelDesc = 'Personal Memory OS reminder alarms';
 
+  static const _scrollChannelId = 'scroll_guard';
+
+  /// Payload of the Scroll Guard notification; tapping it should open capture.
+  static const scrollGuardPayload = 'scroll_guard';
+
   // Notification action IDs
   static const _actionDone = 'action_done';
   static const _actionSnooze = 'action_snooze';
@@ -75,6 +80,16 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(const AndroidNotificationChannel(
+          _scrollChannelId,
+          'Scroll Guard',
+          description: 'Nudges to capture a memory after long scrolling',
+          importance: Importance.defaultImportance,
+        ));
 
     // Request permissions on iOS/Android 13+
     await _plugin
@@ -180,6 +195,20 @@ class NotificationService {
       details,
       payload: payload,
     );
+  }
+
+  /// The Scroll Guard nudge for time spent in other apps. One slot, so a new one replaces the old.
+  static Future<void> showScrollGuard({required String title, required String body}) async {
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _scrollChannelId,
+        'Scroll Guard',
+        importance: Importance.defaultImportance,
+        priority: Priority.defaultPriority,
+      ),
+      iOS: DarwinNotificationDetails(),
+    );
+    await _plugin.show(918273, title, body, details, payload: scrollGuardPayload);
   }
 
   /// Derive a stable int ID from a reminder UUID string.
