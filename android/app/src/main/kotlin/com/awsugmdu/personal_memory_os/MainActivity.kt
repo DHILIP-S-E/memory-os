@@ -28,6 +28,8 @@ class MainActivity : FlutterActivity() {
                 result.notImplemented()
             }
         }
+        val usage = UsageStatsBridge(applicationContext)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, USAGE_CHANNEL).setMethodCallHandler(usage::handle)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).also {
             it.setMethodCallHandler { call, result ->
                 if (call.method == "getInitialText") {
@@ -56,5 +58,6 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL = "pmos/share"
         private const val WIDGET_CHANNEL = "pmos/widget"
+        private const val USAGE_CHANNEL = "pmos/usage"
     }
 }
