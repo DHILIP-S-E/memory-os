@@ -12,7 +12,9 @@ import 'package:personal_memory_os/core/providers/event_provider.dart';
 import 'package:personal_memory_os/core/providers/capture_provider.dart';
 import 'package:personal_memory_os/core/providers/memory_provider.dart';
 import 'package:personal_memory_os/core/scroll_guard/scroll_guard.dart';
+import 'package:personal_memory_os/core/scroll_guard/other_apps_watcher.dart';
 import 'package:personal_memory_os/core/scroll_guard/scroll_guard_host.dart';
+import 'package:personal_memory_os/core/scroll_guard/usage_source.dart';
 
 // Abstract service interfaces (+ stub implementations, used when USE_REAL_BACKEND=false)
 import 'package:personal_memory_os/core/services/account_service.dart';
@@ -49,13 +51,17 @@ import 'package:personal_memory_os/core/services/google_token_source.dart';
 import 'package:personal_memory_os/core/services/timezone_sync.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 
+/// Notification taps, forwarded to the running app (it has no router yet when we initialise).
+final _notificationTaps = StreamController<String?>.broadcast();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize local notification service (device-side alarm layer)
   await NotificationService.initialize(
     onNotificationTap: (payload) {
-      // payload = reminder ID; navigate to reminder detail
+      // payload = reminder ID, or the Scroll Guard marker
+      _notificationTaps.add(payload);
     },
     onActionTap: (actionId, payload) {
       // 'action_done' / 'action_snooze' — handled in provider
@@ -68,6 +74,7 @@ void main() async {
     store: PrefsKeyValueStore(prefs),
     shareSource: ChannelShareSource(),
     widgetBridge: ChannelHomeWidgetBridge(),
+    usageSource: const ChannelUsageSource(),
   ));
 }
 
@@ -82,12 +89,16 @@ class PersonalMemoryOsApp extends StatefulWidget {
   /// Where the home-screen widget's content goes; null = no widget updates (tests).
   final HomeWidgetBridge? widgetBridge;
 
+  /// Time spent in other apps (Android Usage Access); none in tests and on other platforms.
+  final UsageSource usageSource;
+
   const PersonalMemoryOsApp({
     super.key,
     this.useRealBackend = false,
     required this.store,
     this.shareSource = const NoShareSource(),
     this.widgetBridge,
+    this.usageSource = const NoUsageSource(),
   });
 
   @override
@@ -108,6 +119,8 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
   SyncCoordinator? _sync;
   PushRegistration? _push;
   StreamSubscription<String>? _shareSub;
+  StreamSubscription<String?>? _tapSub;
+  OtherAppsWatcher? _otherApps;
   WidgetSync? _widgetSync;
   String? _pendingShare;
 
@@ -181,6 +194,19 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
       _widgetSync = WidgetSync(_reminders, _events, bridge)..start();
     }
     _router = createAppRouter(_auth);
+
+    _tapSub = _notificationTaps.stream.listen((payload) {
+      if (payload == NotificationService.scrollGuardPayload && _auth.isAuthenticated) {
+        _router.go(AppRoutes.capture);
+      }
+    });
+    if (widget.usageSource.supported) {
+      _otherApps = OtherAppsWatcher(
+        _scrollGuard,
+        widget.usageSource,
+        (title, body) => NotificationService.showScrollGuard(title: title, body: body),
+      )..start();
+    }
   }
 
   /// Shared text waits until the user is signed in, then opens the event screen
@@ -211,6 +237,8 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
   @override
   void dispose() {
     _shareSub?.cancel();
+    _tapSub?.cancel();
+    _otherApps?.dispose();
     _scrollGuard.dispose();
     _widgetSync?.dispose();
     _sync?.dispose();
@@ -225,6 +253,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
         Provider<AuthService>.value(value: _authService),
         Provider<AiService>.value(value: _aiService),
         Provider<AccountService>.value(value: _accountService),
+        Provider<UsageSource>.value(value: widget.usageSource),
         Provider<HomeWidgetBridge>.value(value: widget.widgetBridge ?? const NoWidgetBridge()),
         ChangeNotifierProvider.value(value: _auth),
         ChangeNotifierProvider.value(value: _reminders),
