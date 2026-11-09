@@ -203,8 +203,12 @@ class ScrollGuard extends ChangeNotifier {
 
   /// A notification about time in other apps was sent. If the user captures soon after, it counts.
   void onExternalPrompt(int minutes) {
-    _lastPromptAt = _now();
-    _scrolledAtPrompt = Duration(minutes: minutes);
+    // Keep the credit with an in-app prompt that is still recent; otherwise this one takes it.
+    final recent = _lastPromptAt != null && _now().difference(_lastPromptAt!) <= conversionWindow;
+    if (!recent) {
+      _lastPromptAt = _now();
+      _scrolledAtPrompt = Duration(minutes: minutes);
+    }
     _stats = ScrollGuardStats(
       promptsShown: _stats.promptsShown + 1,
       capturesAfterPrompt: _stats.capturesAfterPrompt,
