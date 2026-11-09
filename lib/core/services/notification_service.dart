@@ -21,6 +21,9 @@ class NotificationService {
 
   static const _scrollChannelId = 'scroll_guard';
 
+  /// Payload of the notification that launched the app from a killed state, if any.
+  static String? launchPayload;
+
   /// Payload of the Scroll Guard notification; tapping it should open capture.
   static const scrollGuardPayload = 'scroll_guard';
 
@@ -100,6 +103,11 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin>()
         ?.requestPermissions(alert: true, badge: true, sound: true);
+
+    final launch = await _plugin.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp == true) {
+      launchPayload = launch!.notificationResponse?.payload;
+    }
 
     _initialized = true;
   }
