@@ -53,6 +53,14 @@ class _ScrollGuardOtherAppsTilesState extends State<ScrollGuardOtherAppsTiles> w
       final found = await widget.source.installed([for (final a in watchableApps) a.package]);
       apps = [for (final a in watchableApps) if (found.contains(a.package)) a.package];
     }
+    if (apps.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('None of the supported social apps are installed on this phone.')),
+        );
+      }
+      return;
+    }
     await widget.guard.updateSettings(settings.copyWith(watchOtherApps: true, watchedApps: apps));
     if (_access == true || !mounted) return;
     final open = await showDialog<bool>(
