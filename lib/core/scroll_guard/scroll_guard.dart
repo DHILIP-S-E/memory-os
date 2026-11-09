@@ -16,23 +16,41 @@ class ScrollGuardSettings {
   /// Minutes of passive scrolling before the full-screen break.
   final int breakAfterMinutes;
 
+  /// Android only: also nudge when the user spends this long in the [watchedApps].
+  final bool watchOtherApps;
+
+  /// Package names of the other apps to watch (e.g. com.instagram.android).
+  final List<String> watchedApps;
+
   const ScrollGuardSettings({
     this.enabled = true,
     this.nudgeAfterMinutes = 10,
     this.breakAfterMinutes = 20,
+    this.watchOtherApps = false,
+    this.watchedApps = const [],
   });
 
-  ScrollGuardSettings copyWith({bool? enabled, int? nudgeAfterMinutes, int? breakAfterMinutes}) =>
+  ScrollGuardSettings copyWith({
+    bool? enabled,
+    int? nudgeAfterMinutes,
+    int? breakAfterMinutes,
+    bool? watchOtherApps,
+    List<String>? watchedApps,
+  }) =>
       ScrollGuardSettings(
         enabled: enabled ?? this.enabled,
         nudgeAfterMinutes: nudgeAfterMinutes ?? this.nudgeAfterMinutes,
         breakAfterMinutes: breakAfterMinutes ?? this.breakAfterMinutes,
+        watchOtherApps: watchOtherApps ?? this.watchOtherApps,
+        watchedApps: watchedApps ?? this.watchedApps,
       );
 
   Map<String, dynamic> toJson() => {
         'enabled': enabled,
         'nudgeAfterMinutes': nudgeAfterMinutes,
         'breakAfterMinutes': breakAfterMinutes,
+        'watchOtherApps': watchOtherApps,
+        'watchedApps': watchedApps,
       };
 
   factory ScrollGuardSettings.fromJson(Map<String, dynamic> json) {
@@ -47,6 +65,10 @@ class ScrollGuardSettings {
       enabled: json['enabled'] is bool ? json['enabled'] as bool : defaults.enabled,
       nudgeAfterMinutes: nudgeMinutes,
       breakAfterMinutes: breakMinutes,
+      watchOtherApps: json['watchOtherApps'] is bool ? json['watchOtherApps'] as bool : defaults.watchOtherApps,
+      watchedApps: json['watchedApps'] is List
+          ? [for (final a in json['watchedApps'] as List) if (a is String) a]
+          : defaults.watchedApps,
     );
   }
 }
@@ -176,6 +198,19 @@ class ScrollGuard extends ChangeNotifier {
       );
       _saveStats();
     }
+    notifyListeners();
+  }
+
+  /// A notification about time in other apps was sent. If the user captures soon after, it counts.
+  void onExternalPrompt(int minutes) {
+    _lastPromptAt = _now();
+    _scrolledAtPrompt = Duration(minutes: minutes);
+    _stats = ScrollGuardStats(
+      promptsShown: _stats.promptsShown + 1,
+      capturesAfterPrompt: _stats.capturesAfterPrompt,
+      minutesReclaimed: _stats.minutesReclaimed,
+    );
+    _saveStats();
     notifyListeners();
   }
 
