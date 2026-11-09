@@ -6,6 +6,7 @@ short-lived signed GET link, so files never pass through the API server. R2 spea
 API, so boto3 is used purely as an S3 client pointed at Cloudflare; no AWS service is involved.
 """
 
+import logging
 from functools import lru_cache
 
 import boto3
@@ -14,6 +15,7 @@ from botocore.exceptions import ClientError
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 UPLOAD_LINK_SECONDS = 15 * 60
 DOWNLOAD_LINK_SECONDS = 5 * 60
 
@@ -93,4 +95,6 @@ def delete_object(key: str) -> None:
     try:
         _client().delete_object(Bucket=settings.r2_bucket, Key=key)
     except ClientError:
-        pass
+        # The caller has already removed the database row, so do not fail it; but say so, since
+        # the file may be left behind in the bucket.
+        logger.exception("Could not delete %s from file storage", key)

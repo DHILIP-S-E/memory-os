@@ -5,8 +5,8 @@ import 'package:personal_memory_os/core/services/ai_service.dart';
 import 'package:personal_memory_os/core/services/api_client.dart';
 import 'package:personal_memory_os/core/services/api_mapper.dart';
 
-/// Real implementation of [AiService] — calls FastAPI which calls Bedrock.
-/// Flutter never calls Bedrock directly.
+/// Real implementation of [AiService] — calls the FastAPI backend, which calls Gemini.
+/// The app never calls the model directly.
 class ApiAiService implements AiService {
   final ApiClient _client;
 

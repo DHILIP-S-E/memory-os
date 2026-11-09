@@ -7,7 +7,7 @@ import 'package:personal_memory_os/core/providers/auth_provider.dart';
 import 'package:personal_memory_os/core/services/auth_service.dart';
 import 'package:personal_memory_os/core/services/token_store.dart';
 
-/// Email/password login against the app's own backend (/auth/*), no Cognito.
+/// Email/password login against the app's own backend (/auth/*).
 ///
 /// Stays signed in across restarts and offline: the user and tokens live in
 /// secure storage, and the access token is refreshed quietly when it expires.

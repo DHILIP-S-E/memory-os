@@ -25,6 +25,11 @@ class FakeHttp:
         return httpx.Response(self.status, json=self.payload, request=httpx.Request("POST", url))
 
 
+@pytest.fixture(autouse=True)
+def no_sleep(monkeypatch):
+    monkeypatch.setattr(g.time, "sleep", lambda s: None)
+
+
 @pytest.fixture
 def keyed(monkeypatch):
     monkeypatch.setattr(settings, "gemini_api_key", "test-key")
@@ -134,3 +139,44 @@ def test_embeddings_come_back_as_floats(keyed):
 def test_a_missing_embedding_is_a_clear_error(keyed):
     with pytest.raises(ValueError, match="no embedding"):
         g.embed("hello", client=FakeHttp(payload={}))
+
+
+class Flaky(FakeHttp):
+    """Fails `fail_times` times (with a status or an error), then answers."""
+
+    def __init__(self, fail_times, status=503, error=None):
+        super().__init__()
+        self.fail_times, self.fail_status, self.fail_error = fail_times, status, error
+
+    def post(self, url, json=None, headers=None, timeout=None):
+        if len(self.calls) < self.fail_times:
+            self.calls.append({"url": url})
+            if self.fail_error:
+                raise self.fail_error
+            return httpx.Response(self.fail_status, json={}, request=httpx.Request("POST", url))
+        return super().post(url, json=json, headers=headers, timeout=timeout)
+
+
+def test_a_temporary_server_error_is_retried(keyed):
+    http = Flaky(2, status=503)
+    assert g.generate("x", model="m", client=http) == "ok"
+    assert len(http.calls) == 3
+
+
+def test_a_timeout_is_retried_then_succeeds(keyed):
+    http = Flaky(1, error=httpx.ReadTimeout("slow"))
+    assert g.generate("x", model="m", client=http) == "ok"
+
+
+def test_retries_stop_after_the_limit(keyed):
+    http = Flaky(99, status=503)
+    with pytest.raises(g.AIUnavailable, match="503"):
+        g.generate("x", model="m", client=http)
+    assert len(http.calls) == len(g.RETRY_DELAYS) + 1
+
+
+def test_a_bad_request_is_not_retried(keyed):
+    http = FakeHttp(status=400, payload={})
+    with pytest.raises(g.AIUnavailable, match="400"):
+        g.generate("x", model="m", client=http)
+    assert len(http.calls) == 1

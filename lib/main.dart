@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:personal_memory_os/core/app_dependencies.dart';
 import 'package:personal_memory_os/core/router/app_router.dart';
 import 'package:personal_memory_os/core/theme/app_theme.dart';
 import 'package:personal_memory_os/core/providers/auth_provider.dart';
@@ -16,16 +17,12 @@ import 'package:personal_memory_os/core/scroll_guard/other_apps_watcher.dart';
 import 'package:personal_memory_os/core/scroll_guard/scroll_guard_host.dart';
 import 'package:personal_memory_os/core/scroll_guard/usage_source.dart';
 
-// Abstract service interfaces (+ stub implementations, used when USE_REAL_BACKEND=false)
+// Abstract service interfaces
 import 'package:personal_memory_os/core/services/account_service.dart';
 import 'package:personal_memory_os/core/services/ai_service.dart';
 import 'package:personal_memory_os/core/services/auth_service.dart';
-import 'package:personal_memory_os/core/services/capture_service.dart';
-import 'package:personal_memory_os/core/services/event_service.dart';
-import 'package:personal_memory_os/core/services/memory_service.dart';
-import 'package:personal_memory_os/core/services/reminder_service.dart';
 
-// Real implementations (used when USE_REAL_BACKEND=true)
+// Real implementations
 import 'package:personal_memory_os/core/services/api_ai_service.dart';
 import 'package:personal_memory_os/core/services/api_capture_service.dart';
 import 'package:personal_memory_os/core/services/api_client.dart';
@@ -70,7 +67,6 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   runApp(PersonalMemoryOsApp(
-    useRealBackend: true, // the shipped app only ever shows the user's own real data
     store: PrefsKeyValueStore(prefs),
     shareSource: ChannelShareSource(),
     widgetBridge: ChannelHomeWidgetBridge(),
@@ -79,8 +75,8 @@ void main() async {
 }
 
 class PersonalMemoryOsApp extends StatefulWidget {
-  /// False only in tests, which supply in-memory services instead of the live API.
-  final bool useRealBackend;
+  /// Tests supply their own services here; null (the shipped app) builds the real ones.
+  final AppDependencies? deps;
   final KeyValueStore store;
 
   /// Where text shared from the system share sheet comes from.
@@ -94,7 +90,7 @@ class PersonalMemoryOsApp extends StatefulWidget {
 
   const PersonalMemoryOsApp({
     super.key,
-    this.useRealBackend = false,
+    this.deps,
     required this.store,
     this.shareSource = const NoShareSource(),
     this.widgetBridge,
@@ -123,6 +119,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
   OtherAppsWatcher? _otherApps;
   WidgetSync? _widgetSync;
   String? _pendingShare;
+  bool _pendingCapture = false;
 
   @override
   void initState() {
@@ -130,7 +127,8 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
 
     _scrollGuard = ScrollGuard(widget.store)..load();
 
-    if (widget.useRealBackend) {
+    final deps = widget.deps;
+    if (deps == null) {
       final auth = AppAuthService();
       final client = ApiClient(getToken: auth.getAccessToken);
       final queue = SyncQueue(widget.store);
@@ -164,18 +162,18 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
         },
       )..start();
     } else {
-      _authService = StubAuthService();
-      _aiService = StubAiService();
-      _accountService = StubAccountService();
-      _reminders = ReminderProvider(StubReminderService());
-      _captures = CaptureProvider(StubCaptureService(), store: widget.store, onCaptured: _scrollGuard.onCaptured);
-      _events = EventProvider(StubEventService());
-      _memory = MemoryProvider(StubMemoryService(), _aiService);
+      _authService = deps.authService;
+      _aiService = deps.aiService;
+      _accountService = deps.accountService;
+      _reminders = ReminderProvider(deps.reminders);
+      _captures = CaptureProvider(deps.captures, store: widget.store, onCaptured: _scrollGuard.onCaptured);
+      _events = EventProvider(deps.events);
+      _memory = MemoryProvider(deps.memory, _aiService);
     }
 
     _auth = AuthProvider(
       _authService,
-      google: widget.useRealBackend && AppConfig.googleSignInEnabled
+      google: deps == null && AppConfig.googleSignInEnabled
           ? PluginGoogleTokenSource(AppConfig.googleServerClientId)
           : null,
       onSigningOut: () async => _push?.unregister(),
@@ -186,6 +184,7 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
         // Quiet hours and recurring reminders follow the phone's own clock.
         unawaited(syncDeviceTimezone(_accountService));
         _openPendingShare();
+        _openPendingCapture();
       }
     });
     _listenForShares();
@@ -195,10 +194,13 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
     }
     _router = createAppRouter(_auth);
 
+    // A Scroll Guard notification tap opens capture, once the user is signed in. A tap that
+    // launched the app from a killed state arrives as the launch payload, not on the stream.
+    _pendingCapture = NotificationService.launchPayload == NotificationService.scrollGuardPayload;
     _tapSub = _notificationTaps.stream.listen((payload) {
-      if (payload == NotificationService.scrollGuardPayload && _auth.isAuthenticated) {
-        _router.go(AppRoutes.capture);
-      }
+      if (payload != NotificationService.scrollGuardPayload) return;
+      _pendingCapture = true;
+      _openPendingCapture();
     });
     if (widget.usageSource.supported) {
       _otherApps = OtherAppsWatcher(
@@ -230,6 +232,16 @@ class _PersonalMemoryOsAppState extends State<PersonalMemoryOsApp> {
     // that navigation has settled or the event screen would be wiped.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _router.push(AppRoutes.eventCreate, extra: text);
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  void _openPendingCapture() {
+    if (!_pendingCapture || !_auth.isAuthenticated) return;
+    _pendingCapture = false;
+    // Sign-in finishes with go(today); move on only after that has settled.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _router.go(AppRoutes.capture);
     });
     WidgetsBinding.instance.scheduleFrame();
   }

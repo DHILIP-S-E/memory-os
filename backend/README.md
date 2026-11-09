@@ -1,11 +1,14 @@
 # Personal Memory OS — Backend
 
-FastAPI + PostgreSQL + Amazon Bedrock backend for the Personal Memory OS Flutter app.
+FastAPI + PostgreSQL + Google Gemini + Cloudflare R2 backend for the Personal Memory OS Flutter app.
+There is no AWS dependency.
 
 ```
-Flutter App  →  FastAPI (this)  →  PostgreSQL (cloud)
-                               →  Amazon S3 (media storage)
-                               →  Amazon Bedrock (Amazon Nova / Titan)
+Flutter App  →  FastAPI (this)  →  PostgreSQL (data and the job queue)
+                               →  Cloudflare R2 (private files, S3-compatible API)
+                               →  Google Gemini (all AI calls, server side only)
+                               →  Firebase Cloud Messaging (push)
+Worker (python -m app.worker)  →  delivers reminders, reads captured files
 ```
 
 ---
@@ -13,11 +16,9 @@ Flutter App  →  FastAPI (this)  →  PostgreSQL (cloud)
 ## Prerequisites
 
 - Python 3.11+
-- Cloud PostgreSQL (Neon, Supabase, AWS RDS, etc.)
-- AWS account with:
-  - Bedrock access to a text model (Amazon Nova works with no form) and Titan Embeddings
-  - S3 bucket created (private)
-  - IAM user or role with Bedrock + S3 permissions
+- PostgreSQL (Neon, Supabase, or any server)
+- Optional, each enables one feature: a Gemini API key, a Cloudflare R2 bucket and API token,
+  a Firebase service-account key (push), Google OAuth client IDs (Google sign-in)
 
 ---
 
@@ -48,17 +49,16 @@ cp .env.example .env
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | PostgreSQL connection string (`postgresql+asyncpg://...`) |
-| `AWS_REGION` | AWS region (e.g. `us-east-1`) |
-| `AWS_ACCESS_KEY_ID` | AWS access key (or use IAM role) |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key (or use IAM role) |
-| `S3_BUCKET` | Private S3 bucket name for media |
-| `BEDROCK_MODEL_FAST` | Quick/cheap text model (default `apac.amazon.nova-lite-v1:0`) |
-| `BEDROCK_MODEL_STRONG` | Stronger text model (default `apac.amazon.nova-pro-v1:0`) |
-| `BEDROCK_EMBEDDING_MODEL` | Titan Embeddings model ID |
-| `COGNITO_USER_POOL_ID` | Cognito User Pool ID |
-| `COGNITO_REGION` | Cognito region |
-| `COGNITO_APP_CLIENT_ID` | Cognito App Client ID |
+| `DATABASE_URL` | PostgreSQL connection string (required; the server refuses to start without it) |
+| `JWT_SECRET` | 32+ random characters; signs access tokens. Without it every request is refused |
+| `GOOGLE_CLIENT_IDS` | Google OAuth client IDs, comma-separated |
+| `CORS_ORIGINS` | Allowed browser origins, comma-separated |
+| `GEMINI_API_KEY` | Google Gemini key; without it AI routes answer 503 |
+| `GEMINI_MODEL_FAST` / `GEMINI_MODEL_STRONG` / `GEMINI_EMBEDDING_MODEL` | Model names (settings, not code) |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Cloudflare R2 for private files |
+| `FCM_PROJECT_ID`, `FCM_CREDENTIALS_FILE` | Firebase Cloud Messaging push |
+
+On startup the server logs a warning for each optional setting that is missing.
 
 > **Never commit a real `.env` file.** It is in `.gitignore`.
 
@@ -116,14 +116,14 @@ API is available at:
 ### Captures
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/captures/upload-url` | Get S3 pre-signed PUT URL |
+| `POST` | `/captures/upload-url` | Get R2 signed PUT URL |
 | `POST` | `/captures` | Register capture after upload |
-| `POST` | `/captures/note` | Save text note (no S3) |
+| `POST` | `/captures/note` | Save text note (no file) |
 | `POST` | `/captures/link` | Save URL link |
 | `GET` | `/captures` | List captures |
-| `GET` | `/captures/{id}/download-url` | Get S3 pre-signed GET URL |
+| `GET` | `/captures/{id}/download-url` | Get R2 signed GET URL |
 | `PATCH` | `/captures/{id}` | Update AI results |
-| `DELETE` | `/captures/{id}` | Delete (removes S3 object) |
+| `DELETE` | `/captures/{id}` | Delete (removes the R2 object) |
 
 ### Memory
 | Method | Path | Description |
@@ -143,8 +143,8 @@ API is available at:
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/account/export` | All of the user's data as JSON |
-| `DELETE` | `/account` | Delete everything: DB rows, S3 media, schedules, KB documents |
-| `POST` | `/devices` | Register an FCM/APNs token for cloud push |
+| `DELETE` | `/account` | Delete everything: DB rows, R2 files, pending jobs |
+| `POST` | `/devices` | Register an FCM token for push |
 | `GET` | `/events/{id}/reminder-policy` | Preview the smart reminder plan for an event |
 | `POST` | `/events/{id}/reminder-policy` | Create the confirmed reminders |
 
@@ -181,14 +181,18 @@ flutter run --dart-define=USE_REAL_BACKEND=true --dart-define=BACKEND_URL=http:/
 
 ## Architecture Notes
 
-- **Flutter → FastAPI:** all API calls use `ApiClient` with Cognito JWT header
-- **FastAPI → Bedrock:** `bedrock_service.py` handles all LLM calls — Flutter never calls Bedrock directly
-- **FastAPI → S3:** pre-signed URLs generated server-side; Flutter uploads directly to S3
-- **Auth:** Cognito JWT validated in `auth.py` middleware on every protected route
+- **Flutter → FastAPI:** all API calls use `ApiClient` with the app's own access token
+- **FastAPI → Gemini:** `services/gemini.py` handles every model call (timeouts, retries on
+  temporary errors); Flutter never calls the model directly
+- **FastAPI → R2:** signed URLs generated server-side; Flutter uploads directly to R2
+- **Auth:** access tokens signed with `JWT_SECRET`, checked in `auth.py` on every protected route
+- **Background work:** jobs live in Postgres; `python -m app.worker` runs them with retry and
+  backoff, and marks a job `failed` (with its error) after its last attempt
 - **AI principles enforced:**
-  - AI suggests, user confirms — no silent reminder/event creation from AI output
-  - Every memory answer grounded in stored captures (source citations required)
-  - LLM never executes scheduling — FastAPI + EventBridge Scheduler does
-- **Auth fails closed:** if Cognito is not configured every request is refused (503). For local
+  - AI suggests, user confirms; no silent reminder/event creation from AI output
+  - Every memory answer is grounded in stored captures
+  - The model never schedules anything; server code does
+  - AI failures return a real HTTP error (503 or 502); the server never invents a substitute answer
+- **Auth fails closed:** without `JWT_SECRET` every request is refused (503). For local
   development only, set `ALLOW_INSECURE_DEV_AUTH=true` to accept unverified tokens.
-- **Guardrails:** set `GUARDRAIL_ID` / `GUARDRAIL_VERSION` to apply a Bedrock Guardrail to every model call.
+- `scripts/seed_demo.py` is a dev-only helper for filling a dev server with sample data; the app never imports it.

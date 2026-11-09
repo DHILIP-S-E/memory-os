@@ -6,11 +6,9 @@ import 'package:personal_memory_os/core/models/reminder.dart';
 import 'package:personal_memory_os/core/providers/auth_provider.dart';
 import 'package:personal_memory_os/core/providers/capture_provider.dart';
 import 'package:personal_memory_os/core/providers/reminder_provider.dart';
-import 'package:personal_memory_os/core/services/auth_service.dart';
-import 'package:personal_memory_os/core/services/capture_service.dart';
-import 'package:personal_memory_os/core/services/reminder_service.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 import 'package:personal_memory_os/features/capture/widgets/action_suggestions_section.dart';
+import 'support/stub_services.dart';
 
 class FakeCaptures extends StubCaptureService {
   final List<Capture> items;

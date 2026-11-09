@@ -1,6 +1,6 @@
 """
 Account data rights (spec R5.7, R5.8): export everything, delete everything.
-Deletion cascades S3 objects, DB rows, and pending cloud reminder schedules.
+Deletion removes the user's files in R2, DB rows, and pending background jobs.
 """
 
 import logging
@@ -53,7 +53,7 @@ async def _get_user(user_id: str, db: AsyncSession) -> User:
 
 @router.get("/settings")
 async def get_settings(user_id: str = Depends(get_current_user_id), db: AsyncSession = Depends(get_db)):
-    """Timezone and quiet hours. The cloud dispatcher reads these when a reminder fires."""
+    """Timezone and quiet hours. The background worker reads these when a reminder fires."""
     return (await _get_user(user_id, db)).to_settings()
 
 

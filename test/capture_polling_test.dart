@@ -2,7 +2,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_memory_os/core/models/capture.dart';
 import 'package:personal_memory_os/core/providers/capture_provider.dart';
-import 'package:personal_memory_os/core/services/capture_service.dart';
+import 'support/stub_services.dart';
 
 class ScriptedCaptures extends StubCaptureService {
   final List<CaptureProcessingStatus> script;

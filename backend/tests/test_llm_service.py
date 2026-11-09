@@ -63,13 +63,32 @@ def test_fenced_json_replies_are_understood(fake):
     assert out["title"] == "Submit prototype" and out["type"] == "deadline" and out["offsets"] == ["-1d"]
 
 
-def test_memory_answers_fall_back_politely_when_the_ai_fails(fake):
+def test_memory_answers_do_not_hide_an_ai_failure(fake):
     class Doc:
         event_title, overview, key_topics, key_takeaways, things_learned = "Hack", "o", "[]", "[]", "[]"
 
     fake.text = gemini.AIUnavailable("The AI service returned HTTP 500")
-    out = llm_service.answer_memory_question("what did I learn?", [Doc()])
-    assert "trouble" in out["answer"] and out["sources"] == []
+    with pytest.raises(gemini.AIUnavailable):
+        llm_service.answer_memory_question("what did I learn?", [Doc()])
+
+
+def test_an_event_summary_does_not_hide_an_ai_failure(fake):
+    fake.text = gemini.AIUnavailable("The AI service returned HTTP 500")
+    with pytest.raises(gemini.AIUnavailable):
+        llm_service.summarize_event("Hack", "2026-10-04", "notes")
+
+
+def test_an_unusable_summary_or_answer_is_an_error_not_filler(fake):
+    class Doc:
+        event_title, overview, key_topics, key_takeaways, things_learned = "Hack", "o", "[]", "[]", "[]"
+
+    fake.text = "{}"
+    with pytest.raises(ValueError):
+        llm_service.summarize_event("Hack", "2026-10-04", "notes")
+    with pytest.raises(ValueError):
+        llm_service.answer_memory_question("q", [Doc()])
+    with pytest.raises(ValueError):
+        llm_service.summarize_event("Hack", "2026-10-04", "   ")
 
 
 # --- the AI routes report problems in plain words --------------------------------------------
@@ -94,6 +113,7 @@ def client(monkeypatch):
     c = TestClient(app)
     r = c.post("/auth/register", json={"email": "ada@example.com", "password": "correct horse"})
     c.headers["Authorization"] = f"Bearer {r.json()['access_token']}"
+    assert c.put("/account/settings", json={"ai_enabled": True}).status_code == 200  # AI reading is opt-in
     yield c
     app.dependency_overrides.clear()
 
@@ -116,3 +136,34 @@ def test_an_unexpected_failure_is_a_503_without_internals(client, fake):
     fake.text = RuntimeError("Traceback: secret internals at line 42")
     r = client.post("/ai/extract-event", json={"text": "AWS Student Hackathon on 20 November"})
     assert r.status_code == 503 and "internals" not in r.json()["detail"]
+
+
+def _memory_document(client, fake):
+    """An event with one capture and its generated summary, so /memory/ask has something to search."""
+    r = client.post("/events", json={"title": "Hack", "event_type": "hackathon", "start_at": "2030-10-04T09:00:00"})
+    assert r.status_code == 201, r.text
+    event_id = r.json()["id"]
+    assert client.post("/captures/note", json={"content": "learned about vector search", "event_id": event_id}).status_code == 201
+    fake.text = '{"overview": "o", "key_topics": []}'
+    assert client.post(f"/events/{event_id}/generate-summary").status_code == 201
+
+
+def test_memory_ask_reports_an_ai_outage_instead_of_a_fake_answer(client, fake):
+    _memory_document(client, fake)
+    fake.text = gemini.AIUnavailable("The AI service returned HTTP 500")
+    r = client.post("/memory/ask", json={"question": "what did I learn about vector search?"})
+    assert r.status_code == 503 and "HTTP 500" in r.json()["detail"]
+
+
+def test_memory_ask_with_an_unreadable_answer_is_a_502(client, fake):
+    _memory_document(client, fake)
+    fake.text = "no json here"
+    r = client.post("/memory/ask", json={"question": "what did I learn about vector search?"})
+    assert r.status_code == 502 and "no json" not in r.json()["detail"]
+
+
+def test_summary_of_an_event_with_no_captures_is_a_422(client, fake):
+    r = client.post("/events", json={"title": "Hack", "event_type": "hackathon", "start_at": "2030-10-04T09:00:00"})
+    assert r.status_code == 201, r.text
+    r = client.post(f"/events/{r.json()['id']}/generate-summary")
+    assert r.status_code == 422 and fake.calls == []

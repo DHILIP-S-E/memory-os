@@ -1,5 +1,5 @@
 name: personal_memory_os
-description: Personal Reminder & Memory OS — AWS-native Flutter app with Amazon Bedrock AI.
+description: Personal Reminder & Memory OS — Flutter app with Gemini AI.
 version: 1.0.0+1
 publish_to: none
 

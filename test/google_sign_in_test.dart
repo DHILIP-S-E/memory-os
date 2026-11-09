@@ -8,6 +8,7 @@ import 'package:personal_memory_os/core/services/app_auth_service.dart';
 import 'package:personal_memory_os/core/services/auth_service.dart';
 import 'package:personal_memory_os/core/services/google_token_source.dart';
 import 'package:personal_memory_os/core/services/token_store.dart';
+import 'support/stub_services.dart';
 
 class FakeGoogle implements GoogleTokenSource {
   String? token;

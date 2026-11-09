@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_memory_os/core/providers/auth_provider.dart';
-import 'package:personal_memory_os/core/services/auth_service.dart';
+import 'support/stub_services.dart';
 
 class HangingAuth extends StubAuthService {
   @override

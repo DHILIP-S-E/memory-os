@@ -14,7 +14,7 @@ class Capture(Base):
     user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     event_id: Mapped[str | None] = mapped_column(String(36), index=True)
     capture_type: Mapped[str] = mapped_column(String(20), nullable=False)  # photo, voice, note, document, link
-    storage_key: Mapped[str | None] = mapped_column(String(1000))          # S3 object key
+    storage_key: Mapped[str | None] = mapped_column(String(1000))          # R2 object key
     mime_type: Mapped[str | None] = mapped_column(String(100))
     duration: Mapped[int | None] = mapped_column(Integer)                  # seconds for audio/video
     transcription: Mapped[str | None] = mapped_column(Text)

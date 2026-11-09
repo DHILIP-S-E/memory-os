@@ -3,6 +3,7 @@ import 'package:personal_memory_os/core/models/event.dart';
 import 'package:personal_memory_os/core/providers/event_provider.dart';
 import 'package:personal_memory_os/core/services/api_mapper.dart';
 import 'package:personal_memory_os/core/services/event_service.dart';
+import 'support/stub_services.dart';
 
 Event hackathon() => eventFromApi({
       'id': 'e1',

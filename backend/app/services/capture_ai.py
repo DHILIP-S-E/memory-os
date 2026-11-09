@@ -1,8 +1,7 @@
 """
 AI processing of captured text (notes, links).
 
-With the queue pipeline (SQS -> worker) this runs in the worker Lambda; in the lean
-deployment there is no queue, so the API runs the same steps in a background task.
+Used by the background worker (queued jobs) and by the API's in-process background task.
 The prompt and the parsing of the model's reply live here so both paths agree.
 """
 

@@ -4,7 +4,6 @@ import 'package:personal_memory_os/core/services/api_client.dart';
 import 'package:personal_memory_os/core/services/api_mapper.dart';
 
 /// Real implementation of [ReminderService] that calls the FastAPI backend.
-/// Replaces [StubReminderService] in production.
 class ApiReminderService implements ReminderService {
   final ApiClient _client;
 

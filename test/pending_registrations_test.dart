@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:personal_memory_os/core/models/event.dart';
 import 'package:personal_memory_os/core/providers/event_provider.dart';
-import 'package:personal_memory_os/core/services/event_service.dart';
 import 'package:personal_memory_os/features/today/widgets/pending_registrations_card.dart';
+import 'support/stub_services.dart';
 
 final _now = DateTime.now();
 

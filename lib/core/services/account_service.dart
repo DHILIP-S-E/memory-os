@@ -9,7 +9,7 @@ abstract class AccountService {
   /// Pretty-printed JSON of all the user's data.
   Future<String> exportData();
 
-  /// Permanently deletes all user data (S3 media, schedules, database rows).
+  /// Permanently deletes all user data (stored media, schedules, database rows).
   Future<void> deleteAllData();
 
   /// Timezone and quiet hours.
@@ -70,37 +70,4 @@ class ApiAccountService implements AccountService {
         .map((j) => NotificationDelivery.fromJson(Map<String, dynamic>.from(j as Map)))
         .toList();
   }
-}
-
-class StubAccountService implements AccountService {
-  AccountSettings settings = const AccountSettings();
-  List<NotificationDelivery> history = [];
-
-  @override
-  Future<String> exportData() async =>
-      const JsonEncoder.withIndent('  ').convert({'demo': true});
-
-  @override
-  Future<void> deleteAllData() async {}
-
-  @override
-  Future<AccountSettings> getSettings() async => settings;
-
-  @override
-  Future<AccountSettings> updateSettings({
-    String? timezone,
-    bool? quietHoursEnabled,
-    int? quietHoursStart,
-    int? quietHoursEnd,
-  }) async =>
-      settings = settings.copyWith(
-        timezone: timezone,
-        quietHoursEnabled: quietHoursEnabled,
-        quietHoursStart: quietHoursStart,
-        quietHoursEnd: quietHoursEnd,
-      );
-
-  @override
-  Future<List<NotificationDelivery>> notificationHistory({int limit = 50, int offset = 0}) async =>
-      history.skip(offset).take(limit).toList();
 }

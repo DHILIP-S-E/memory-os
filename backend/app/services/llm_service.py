@@ -88,6 +88,8 @@ def answer_memory_question(question: str, docs: list) -> dict:
         docs: list of MemoryDocument ORM objects
 
     Returns: {"answer": str, "sources": [{"event_title": str, "capture_ref": str|None}]}
+    Raises gemini.AIUnavailable (not configured, network, HTTP error) or ValueError (blocked,
+    empty or unreadable answer); the route turns those into HTTP errors.
     """
     if not docs:
         return {
@@ -118,19 +120,13 @@ def answer_memory_question(question: str, docs: list) -> dict:
     template = _load_prompt("memory_qa")
     prompt = _render(template, context=context, question=question)
 
-    try:
-        raw = _invoke(
-            settings.gemini_model_strong, prompt, max_tokens=1024
-        )
-        result = _extract_json(raw)
-        result.setdefault("answer", "I couldn't find a clear answer in your memory.")
-        result.setdefault("sources", [])
-        return result
-    except Exception as e:
-        return {
-            "answer": "I had trouble searching your memory. Please try again.",
-            "sources": [],
-        }
+    raw = _invoke(settings.gemini_model_strong, prompt, max_tokens=1024)
+    result = _extract_json(raw)
+    if not isinstance(result.get("answer"), str) or not result["answer"].strip():
+        raise ValueError("The AI answer had no text")
+    if not isinstance(result.get("sources"), list):
+        result["sources"] = []
+    return result
 
 
 def summarize_event(event_title: str, event_date: str, captures_text: str) -> dict:
@@ -144,19 +140,11 @@ def summarize_event(event_title: str, event_date: str, captures_text: str) -> di
         captures_text: concatenated text from all captures for this event
 
     Returns structured summary dict with topics, takeaways, action_items, etc.
+    Raises ValueError when there is nothing to summarize or the answer is unusable, and
+    gemini.AIUnavailable when the AI service cannot be used; the caller reports both.
     """
     if not captures_text.strip():
-        return {
-            "overview": "No captures available to summarize.",
-            "key_topics": [],
-            "key_takeaways": [],
-            "things_learned": [],
-            "important_people": [],
-            "resources": [],
-            "links": [],
-            "decisions": [],
-            "action_items": [],
-        }
+        raise ValueError("There is nothing captured for this event to summarize")
 
     template = _load_prompt("summarize_event")
     prompt = _render(
@@ -165,27 +153,14 @@ def summarize_event(event_title: str, event_date: str, captures_text: str) -> di
         event_date=event_date,
         captures_text=captures_text[:8000],  # truncate to stay within token budget
     )
-    try:
-        raw = _invoke(
-            settings.gemini_model_strong, prompt, max_tokens=2048
-        )
-        result = _extract_json(raw)
-        # Ensure all expected keys present
-        for key in ["key_topics", "key_takeaways", "things_learned",
-                    "important_people", "resources", "links",
-                    "decisions", "action_items"]:
-            result.setdefault(key, [])
-        result.setdefault("overview", "")
-        return result
-    except Exception:
-        return {
-            "overview": "Summary generation failed. Please try again.",
-            "key_topics": [],
-            "key_takeaways": [],
-            "things_learned": [],
-            "important_people": [],
-            "resources": [],
-            "links": [],
-            "decisions": [],
-            "action_items": [],
-        }
+    raw = _invoke(settings.gemini_model_strong, prompt, max_tokens=2048)
+    result = _extract_json(raw)
+    # Fill list fields the model left out; a non-list value is not usable.
+    for key in ["key_topics", "key_takeaways", "things_learned",
+                "important_people", "resources", "links",
+                "decisions", "action_items"]:
+        if not isinstance(result.get(key), list):
+            result[key] = []
+    if not isinstance(result.get("overview"), str) or not result["overview"].strip():
+        raise ValueError("The AI summary had no overview")
+    return result

@@ -20,7 +20,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
     'What did I learn about AI agents?',
     'Which event mentioned RAG?',
     'What action items did I collect last month?',
-    'Show everything I captured about AWS Bedrock.',
+    'Show everything I captured about AI agents.',
   ];
 
   void _send() {
@@ -134,7 +134,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Powered by Amazon Bedrock Knowledge Bases. Every answer is grounded in your own captured content.',
+                  'Powered by Gemini. Every answer is grounded in your own captured content.',
                   style: AppTextStyles.bodyMedium,
                 ),
               ],

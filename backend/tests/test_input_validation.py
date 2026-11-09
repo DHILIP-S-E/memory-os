@@ -44,7 +44,9 @@ def client(monkeypatch):
 
 def signup(client, email="ada@example.com"):
     r = client.post("/auth/register", json={"email": email, "password": "correct horse"})
-    return {"Authorization": f"Bearer {r.json()['access_token']}"}, r.json()["user"]["id"]
+    headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    assert client.put("/account/settings", headers=headers, json={"ai_enabled": True}).status_code == 200  # opt-in
+    return headers, r.json()["user"]["id"]
 
 
 # --- the shared rules -----------------------------------------------------------------------

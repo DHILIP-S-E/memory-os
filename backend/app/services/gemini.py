@@ -8,15 +8,21 @@ specific to one model.
 """
 
 import base64
+import logging
+import time
 from typing import Iterable
 
 import httpx
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
 API_ROOT = "https://generativelanguage.googleapis.com/v1beta"
 # Gemini accepts at most 20 MB per request, prompt included. Stay clear of it.
 MAX_INLINE_BYTES = 18 * 1024 * 1024
+# Temporary failures (network, rate limit, server error) are retried after these pauses.
+RETRY_DELAYS = (1.0, 3.0)
+RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 class AIUnavailable(RuntimeError):
@@ -85,14 +91,28 @@ def _key() -> str:
 
 def _post(path: str, body: dict, timeout: float, client: httpx.Client | None) -> dict:
     headers = {"x-goog-api-key": _key(), "Content-Type": "application/json"}
-    try:
-        response = (client or httpx).post(f"{API_ROOT}/{path}", json=body, headers=headers, timeout=timeout)
-    except httpx.HTTPError as exc:
-        raise AIUnavailable(f"Could not reach the AI service ({type(exc).__name__})") from exc
-    if response.status_code >= 400:
-        # Report the status only: the body can echo the request, which may hold user content.
-        raise AIUnavailable(f"The AI service returned HTTP {response.status_code}")
-    return response.json()
+    attempts = len(RETRY_DELAYS) + 1
+    for attempt in range(1, attempts + 1):
+        try:
+            response = (client or httpx).post(f"{API_ROOT}/{path}", json=body, headers=headers, timeout=timeout)
+        except httpx.HTTPError as exc:
+            if attempt < attempts:
+                logger.warning("Gemini call failed (%s); retrying", type(exc).__name__)
+                time.sleep(RETRY_DELAYS[attempt - 1])
+                continue
+            raise AIUnavailable(f"Could not reach the AI service ({type(exc).__name__})") from exc
+        if response.status_code in RETRY_STATUSES and attempt < attempts:
+            logger.warning("Gemini returned HTTP %s; retrying", response.status_code)
+            time.sleep(RETRY_DELAYS[attempt - 1])
+            continue
+        if response.status_code >= 400:
+            # Report the status only: the body can echo the request, which may hold user content.
+            raise AIUnavailable(f"The AI service returned HTTP {response.status_code}")
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise AIUnavailable("The AI service returned an unreadable answer") from exc
+    raise AIUnavailable("The AI service did not answer")  # unreachable: the loop returns or raises
 
 
 def generate(

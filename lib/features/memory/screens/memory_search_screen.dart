@@ -17,7 +17,7 @@ class _MemorySearchScreenState extends State<MemorySearchScreen> {
 
   static const _suggestions = [
     'AI agents',
-    'AWS Bedrock',
+    'AI agents',
     'RAG',
     'what did I learn last month',
     'action items',

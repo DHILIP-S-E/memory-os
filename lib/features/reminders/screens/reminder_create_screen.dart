@@ -326,7 +326,7 @@ class _ReminderCreateScreenState extends State<ReminderCreateScreen>
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Describe your reminder in plain English. Powered by Amazon Bedrock.',
+                    'Describe your reminder in plain English. Powered by Gemini.',
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textSecondary),
                   ),

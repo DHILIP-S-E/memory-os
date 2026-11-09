@@ -6,6 +6,7 @@ import 'package:personal_memory_os/core/models/notification_delivery.dart';
 import 'package:personal_memory_os/core/services/account_service.dart';
 import 'package:personal_memory_os/features/settings/notification_history_screen.dart';
 import 'package:personal_memory_os/features/settings/reminder_settings_section.dart';
+import 'support/stub_services.dart';
 
 /// Fails the first [failures] calls to getSettings, then behaves normally.
 class FlakyAccount extends StubAccountService {

@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_memory_os/core/services/share_source.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 import 'package:personal_memory_os/main.dart';
+import 'support/stub_services.dart';
 
 class FakeShare implements ShareSource {
   final String? initial;
@@ -31,7 +32,7 @@ void main() {
       (tester) async {
     final share = FakeShare(initial: 'AWS Hackathon Oct 4-5, register by Oct 1');
     await tester.pumpWidget(
-        PersonalMemoryOsApp(store: MemoryKeyValueStore(), shareSource: share));
+        PersonalMemoryOsApp(deps: stubDeps(), store: MemoryKeyValueStore(), shareSource: share));
     await tester.pumpAndSettle(const Duration(seconds: 1));
 
     expect(find.text('Welcome back'), findsOneWidget, reason: 'still on the login screen');
@@ -47,7 +48,7 @@ void main() {
       (tester) async {
     final share = FakeShare();
     await tester.pumpWidget(
-        PersonalMemoryOsApp(store: MemoryKeyValueStore(), shareSource: share));
+        PersonalMemoryOsApp(deps: stubDeps(), store: MemoryKeyValueStore(), shareSource: share));
     await tester.pumpAndSettle(const Duration(seconds: 1));
     await signIn(tester);
     expect(find.textContaining('Paste event information'), findsNothing);

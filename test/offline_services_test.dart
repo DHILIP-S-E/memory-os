@@ -5,10 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_memory_os/core/models/capture.dart';
 import 'package:personal_memory_os/core/models/reminder.dart';
 import 'package:personal_memory_os/core/services/api_client.dart';
-import 'package:personal_memory_os/core/services/capture_service.dart';
-import 'package:personal_memory_os/core/services/reminder_service.dart';
 import 'package:personal_memory_os/core/sync/offline_services.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
+import 'support/stub_services.dart';
 
 class FlakyReminderService extends StubReminderService {
   Object? failWith;

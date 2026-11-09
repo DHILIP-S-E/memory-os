@@ -51,6 +51,7 @@ def env(monkeypatch):
     r = client.post("/auth/register", json={"email": "ada@example.com", "password": "correct horse"})
     client.headers["Authorization"] = f"Bearer {r.json()['access_token']}"
     client.user_id = r.json()["user"]["id"]
+    assert client.put("/account/settings", json={"ai_enabled": True}).status_code == 200  # AI reading is opt-in
     yield client, Session
     app.dependency_overrides.clear()
 

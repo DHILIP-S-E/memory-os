@@ -147,7 +147,9 @@ def client(monkeypatch):
 
 def headers(client):
     r = client.post("/auth/register", json={"email": "ada@example.com", "password": "correct horse"})
-    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+    headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    assert client.put("/account/settings", headers=headers, json={"ai_enabled": True}).status_code == 200  # opt-in
+    return headers
 
 
 def test_the_endpoint_returns_only_the_cleaned_proposal(client):

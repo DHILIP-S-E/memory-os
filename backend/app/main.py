@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -6,9 +7,37 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import get_current_user_id
 from app.config import settings
 from app.routers import reminders, events, captures, memory, ai, account, devices, auth, notifications, dashboard
+from app.services import push, storage
+
+logger = logging.getLogger(__name__)
+
+def check_settings() -> list[str]:
+    """Plain-words problems with the server's settings, logged at startup. DATABASE_URL is
+    already required at import; the rest degrade one feature each, so they warn instead of
+    stopping the server."""
+    problems = []
+    if not settings.jwt_secret:
+        problems.append("JWT_SECRET is not set: every request is refused"
+                        + (" (ALLOW_INSECURE_DEV_AUTH accepts any token)" if settings.allow_insecure_dev_auth else ""))
+    elif len(settings.jwt_secret) < 32:
+        problems.append("JWT_SECRET is shorter than 32 characters")
+    if settings.allow_insecure_dev_auth:
+        problems.append("ALLOW_INSECURE_DEV_AUTH is on: never use this in production")
+    if not settings.gemini_api_key:
+        problems.append("GEMINI_API_KEY is not set: AI features answer 503")
+    if not settings.google_client_ids:
+        problems.append("GOOGLE_CLIENT_IDS is not set: Google sign-in is disabled")
+    if not storage.is_configured():
+        problems.append("R2 settings are incomplete: file captures are disabled")
+    if not push.is_configured():
+        problems.append("FCM settings are incomplete: push is not sent")
+    return problems
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    for problem in check_settings():
+        logger.warning("Configuration: %s", problem)
     if settings.auto_create_tables:
         # Local development only. Production schemas come from `alembic upgrade head`.
         import app.models  # noqa: F401  (register every table)
@@ -23,7 +52,7 @@ app = FastAPI(
     lifespan=lifespan,
     title="Personal Memory OS API",
     version="1.0.0",
-    description="AWS-native personal reminder and memory platform",
+    description="Personal reminder and memory platform",
 )
 
 # Auth is a Bearer header (no cookies), so credentials are not needed; that also makes

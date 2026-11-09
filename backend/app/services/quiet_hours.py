@@ -1,4 +1,4 @@
-"""Quiet hours (spec 4.5). Pure: no I/O. Shared by the API and the dispatcher Lambda.
+"""Quiet hours (spec 4.5). Pure: no I/O. Shared by the API and the background worker.
 
 Rules that must hold:
   * Quiet hours are measured on the user's own clock, never UTC.

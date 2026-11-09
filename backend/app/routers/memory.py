@@ -5,7 +5,9 @@ Memory router — list, search, and AI Q&A for personal memory documents.
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,8 +17,10 @@ from app.auth import get_current_user_id
 from app.services.ai_consent import require_ai
 from app.database import get_db
 from app.models.memory import MemoryDocument
+from app.services.gemini import AIUnavailable
 from app.services.llm_service import answer_memory_question
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -124,7 +128,17 @@ async def ask_memory(
         docs = result.scalars().all()
 
     # Step 3+4+5: call Gemini with context
-    return answer_memory_question(body.question, docs)
+    try:
+        return answer_memory_question(body.question, docs)
+    except AIUnavailable as exc:
+        # Safe to show: "not configured", "could not reach", or an HTTP status. Never model output.
+        raise HTTPException(status_code=503, detail=str(exc))
+    except ValueError:
+        logger.exception("Memory answer was unusable")
+        raise HTTPException(status_code=502, detail="The AI could not answer that. Please try again.")
+    except Exception:
+        logger.exception("Memory question failed")
+        raise HTTPException(status_code=503, detail="The AI service had a problem. Please try again.")
 
 
 @router.get("/{document_id}")

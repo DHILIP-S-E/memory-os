@@ -3,10 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:personal_memory_os/core/models/capture.dart';
 import 'package:personal_memory_os/core/providers/capture_provider.dart';
-import 'package:personal_memory_os/core/services/capture_service.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 import 'package:personal_memory_os/shared/widgets/capture_card.dart';
 import 'package:personal_memory_os/shared/widgets/retry_capture.dart';
+import 'support/stub_services.dart';
 
 final _now = DateTime(2026, 10, 18, 9);
 

@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:personal_memory_os/core/config.dart';
 
 /// Base HTTP client for all FastAPI calls.
-/// Auto-injects Cognito JWT from the token provider function.
+/// Auto-injects the backend's JWT bearer token from the token provider function.
 /// Handles JSON serialisation and HTTP error mapping.
 class ApiClient {
   final String _baseUrl;
@@ -68,16 +68,16 @@ class ApiClient {
     return _handle(response);
   }
 
-  /// Upload a file directly to S3 using a pre-signed PUT URL.
-  /// No auth header needed — S3 pre-signed URLs carry their own credentials.
-  Future<void> putFileToS3(String uploadUrl, List<int> bytes, String contentType) async {
+  /// Upload a file directly to object storage (Cloudflare R2) using a pre-signed PUT URL.
+  /// No auth header needed — pre-signed URLs carry their own credentials.
+  Future<void> putFileToStorage(String uploadUrl, List<int> bytes, String contentType) async {
     final response = await http.put(
       Uri.parse(uploadUrl),
       headers: {'Content-Type': contentType},
       body: bytes,
     );
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiException(response.statusCode, 'S3 upload failed: ${response.body}');
+      throw ApiException(response.statusCode, 'Upload failed: ${response.body}');
     }
   }
 

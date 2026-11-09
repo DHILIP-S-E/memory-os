@@ -5,10 +5,9 @@ import 'package:personal_memory_os/core/models/event.dart';
 import 'package:personal_memory_os/core/providers/auth_provider.dart';
 import 'package:personal_memory_os/core/providers/event_provider.dart';
 import 'package:personal_memory_os/core/services/ai_service.dart';
-import 'package:personal_memory_os/core/services/auth_service.dart';
-import 'package:personal_memory_os/core/services/event_service.dart';
 import 'package:personal_memory_os/features/events/screens/event_create_screen.dart';
 import 'package:personal_memory_os/features/events/widgets/extraction_review.dart';
+import 'support/stub_services.dart';
 
 final _register = DateTime(2026, 11, 5, 23, 59);
 

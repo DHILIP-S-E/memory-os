@@ -3,6 +3,7 @@ Event API router — full CRUD with nested deadlines, user-scoped.
 """
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -24,6 +25,7 @@ from app.models.capture import Capture
 from app.models.reminder import Reminder
 from app.services.event_policy import CADENCE_CHOICES, build_reminder_policy
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -487,6 +489,7 @@ async def generate_event_summary(
       4. Save MemoryDocument to DB
       5. Update event.summary_id
     """
+    from app.services.gemini import AIUnavailable
     from app.services.llm_service import summarize_event
     from app.models.memory import MemoryDocument
 
@@ -513,11 +516,23 @@ async def generate_event_summary(
     captures_text = "\n\n".join(lines)
 
     # Call Gemini
-    summary_data = summarize_event(
-        event_title=event.title,
-        event_date=event.start_at.date().isoformat(),
-        captures_text=captures_text,
-    )
+    if not captures_text.strip():
+        raise HTTPException(status_code=422, detail="Capture something for this event first, then summarize it.")
+    try:
+        summary_data = summarize_event(
+            event_title=event.title,
+            event_date=event.start_at.date().isoformat(),
+            captures_text=captures_text,
+        )
+    except AIUnavailable as exc:
+        # Safe to show: "not configured", "could not reach", or an HTTP status. Never model output.
+        raise HTTPException(status_code=503, detail=str(exc))
+    except ValueError:
+        logger.exception("Event summary was unusable")
+        raise HTTPException(status_code=502, detail="The AI could not summarize this event. Please try again.")
+    except Exception:
+        logger.exception("Event summary failed")
+        raise HTTPException(status_code=503, detail="The AI service had a problem. Please try again.")
 
     # Build search_vector for keyword search
     topics = summary_data.get("key_topics", [])

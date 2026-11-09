@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_memory_os/core/models/account_settings.dart';
 import 'package:personal_memory_os/core/models/notification_delivery.dart';
-import 'package:personal_memory_os/core/services/account_service.dart';
 import 'package:personal_memory_os/core/services/timezone_sync.dart';
+import 'support/stub_services.dart';
 
 class FailingAccount extends StubAccountService {
   @override

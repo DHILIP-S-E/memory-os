@@ -5,11 +5,10 @@ import 'package:personal_memory_os/core/models/event.dart';
 import 'package:personal_memory_os/core/providers/capture_provider.dart';
 import 'package:personal_memory_os/core/providers/event_provider.dart';
 import 'package:personal_memory_os/core/providers/reminder_provider.dart';
-import 'package:personal_memory_os/core/services/capture_service.dart';
 import 'package:personal_memory_os/core/services/event_service.dart';
-import 'package:personal_memory_os/core/services/reminder_service.dart';
 import 'package:personal_memory_os/core/sync/sync_queue.dart';
 import 'package:personal_memory_os/features/events/screens/event_detail_screen.dart';
+import 'support/stub_services.dart';
 
 Event hackathon() {
   final now = DateTime.now();

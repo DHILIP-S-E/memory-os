@@ -6,8 +6,8 @@ import 'package:personal_memory_os/core/services/api_mapper.dart';
 
 /// Real implementation of [CaptureService].
 /// Upload flow:
-///   1. POST /captures/upload-url  → get pre-signed S3 PUT URL + capture_id
-///   2. PUT <upload_url>           → upload file bytes directly to S3
+///   1. POST /captures/upload-url  → get pre-signed PUT URL + capture_id
+///   2. PUT <upload_url>           → upload file bytes directly to object storage
 ///   3. POST /captures             → register capture metadata in DB
 class ApiCaptureService implements CaptureService {
   final ApiClient _client;
@@ -41,9 +41,9 @@ class ApiCaptureService implements CaptureService {
     final captureId = urlData['capture_id'] as String;
     final s3Key = urlData['s3_key'] as String;
 
-    // Step 2: upload file directly to S3
+    // Step 2: upload file directly to object storage
     final bytes = await file.readAsBytes();
-    await _client.putFileToS3(uploadUrl, bytes, contentType);
+    await _client.putFileToStorage(uploadUrl, bytes, contentType);
 
     // Step 3: register capture in DB
     final captureData = await _client.post('/captures', {

@@ -82,10 +82,10 @@ async def extract_event_endpoint(
     """
     Extract structured event info from pasted text or a URL description.
 
-    Example input: "AWS Hackathon Oct 4-5, register by Oct 1, Bangalore"
+    Example input: "Spring Hackathon Oct 4-5, register by Oct 1, Bangalore"
     Example output:
     {
-      "title": "AWS Hackathon",
+      "title": "Spring Hackathon",
       "event_type": "hackathon",
       "start_at": "2026-10-04T09:00:00",
       "end_at": "2026-10-05T18:00:00",

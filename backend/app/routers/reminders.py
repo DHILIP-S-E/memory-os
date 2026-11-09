@@ -1,6 +1,6 @@
 """
 Reminder API router — full CRUD, user-scoped.
-All routes require a valid Cognito JWT.
+All routes require a valid access token (see app/auth.py).
 """
 
 import json

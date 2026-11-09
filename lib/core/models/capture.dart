@@ -13,7 +13,7 @@ class Capture {
   final String userId;
   final String? eventId;
   final CaptureType type;
-  final String? storageKey; // S3 key
+  final String? storageKey; // object storage key
   final String? mimeType;
   final int? duration; // seconds for audio/video
   final String? transcription;

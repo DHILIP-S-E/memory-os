@@ -6,8 +6,8 @@ import 'package:personal_memory_os/core/models/reminder.dart';
 import 'package:personal_memory_os/core/providers/event_provider.dart';
 import 'package:personal_memory_os/core/providers/reminder_provider.dart';
 import 'package:personal_memory_os/core/services/event_service.dart';
-import 'package:personal_memory_os/core/services/reminder_service.dart';
 import 'package:personal_memory_os/features/events/widgets/reminder_plan_section.dart';
+import 'support/stub_services.dart';
 
 Event hackathon({bool withRegistration = true, RegistrationStatus status = RegistrationStatus.notStarted}) {
   final now = DateTime.now();

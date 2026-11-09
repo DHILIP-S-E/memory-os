@@ -8,12 +8,13 @@
 ///
 /// Anything left out is simply switched off: no Google button, no push (local alarms still ring).
 class AppConfig {
-  /// The API. Android emulator: http://10.0.2.2:8080. A phone on the same Wi-Fi: http://<pc ip>:8080.
-  static const backendUrl = String.fromEnvironment('BACKEND_URL', defaultValue: 'http://10.0.2.2:8080');
+  /// The API; defaults to the deployed backend. For a local one use http://10.0.2.2:8080 on the
+  /// Android emulator, or http://<pc ip>:8080 on a phone on the same Wi-Fi.
+  static const backendUrl = String.fromEnvironment('BACKEND_URL', defaultValue: 'https://memory-os-zit9.onrender.com');
 
   /// Google sign-in: the *web* OAuth client ID. Android needs it as the "server client ID" to
   /// receive an ID token the backend can check. Empty = no "Continue with Google" button.
-  static const googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+  static const googleServerClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID', defaultValue: '1032006864678-hpmn25rbom7bf12c9j5egmf10j0aevrb.apps.googleusercontent.com');
 
   static bool get googleSignInEnabled => googleServerClientId.isNotEmpty;
 

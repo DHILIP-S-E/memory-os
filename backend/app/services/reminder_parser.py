@@ -1,7 +1,7 @@
 """
 Pure validation/normalisation for LLM-parsed reminders (spec R1.2, R1.4).
 
-Bedrock output is untrusted. Whatever the model returns, this module
+Model output is untrusted. Whatever the model returns, this module
 guarantees the result is a well-formed reminder dict: known type/priority,
 bounded non-empty title, ISO-8601 scheduled_at or None, and a sorted,
 de-duplicated list of valid offsets (largest lead time first).

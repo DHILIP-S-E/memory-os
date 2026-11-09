@@ -1,10 +1,12 @@
 """
-Create (or reset) the public DEMO account with sample data, through the public API.
+DEVELOPMENT ONLY. Never imported by the app or the worker; run by hand against a dev server.
 
-    python scripts/seed_demo.py                      # against the live backend
+Create (or reset) a DEMO account with sample data, through the public API.
+
+    python scripts/seed_demo.py                      # against http://localhost:8000
     python scripts/seed_demo.py --base-url http://localhost:8000
 
-The account is throwaway and its credentials are published for judges, so it only ever
+The account is throwaway and its credentials are in this file, so it only ever
 holds made-up data. Safe to re-run: it deletes the demo account first, then rebuilds it.
 Dates are relative to "now", so the demo always has something overdue, due today and coming up.
 """
@@ -16,12 +18,12 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-DEFAULT_URL = "https://wrducpxx4p.ap-south-1.awsapprunner.com"
+DEFAULT_URL = "http://localhost:8000"  # a dev server; pass --base-url for any other
 EMAIL = "judge-demo@example.com"
 PASSWORD = "ZeroToShipped2026!"
 
 NOTES = [
-    "Bedrock Agents can call tools and use knowledge bases to answer from private data. "
+    "Vector search lets an assistant retrieve notes by meaning to answer from private data. "
     "The speaker stressed that the model only interprets: deterministic code should do the scheduling.",
     "RAG reduces hallucination because answers are grounded in retrieved documents. "
     "Chunk size matters: 300 tokens with 20 percent overlap worked well in the demo.",
@@ -83,7 +85,7 @@ def main() -> int:
             {"title": "Prototype submission", "deadline_type": "submission", "deadline_at": iso(now + timedelta(days=8))},
         ],
     })
-    workshop = post("/events", {"title": "Bedrock Agents Workshop", "event_type": "workshop",
+    workshop = post("/events", {"title": "Vector Search Workshop", "event_type": "workshop",
                                 "start_at": iso(now - timedelta(days=3)), "location": "Bangalore"})
     http.patch(f"/events/{workshop['id']}", json={"status": "completed"}, headers=auth).raise_for_status()
     step("created 2 events (the workshop is marked completed)")
@@ -107,9 +109,9 @@ def main() -> int:
     summary.raise_for_status()
     step(f"generated the workshop's memory summary ({len(summary.json().get('key_topics', []))} topics)")
 
-    answer = http.post("/memory/ask", json={"question": "What did I learn about Bedrock Agents?"}, headers=auth, timeout=120)
+    answer = http.post("/memory/ask", json={"question": "What did I learn about vector search?"}, headers=auth, timeout=120)
     answer.raise_for_status()
-    print(f"\nTry asking: 'What did I learn about Bedrock Agents?'\n  -> {answer.json()['answer'][:160]}")
+    print(f"\nTry asking: 'What did I learn about vector search?'\n  -> {answer.json()['answer'][:160]}")
     print(f"\nDemo login: {EMAIL} / {PASSWORD}")
     return 0
 

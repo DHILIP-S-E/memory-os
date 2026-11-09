@@ -24,11 +24,3 @@ class ApiDeviceService implements DeviceService {
     await _client.post('/devices/unregister', {'token': token});
   }
 }
-
-class StubDeviceService implements DeviceService {
-  @override
-  Future<void> registerPushToken(String token, {required String platform}) async {}
-
-  @override
-  Future<void> unregisterPushToken(String token) async {}
-}

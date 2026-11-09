@@ -130,7 +130,7 @@ class SettingsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
-                    'Amazon Cognito',
+                    'Secure sign-in',
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.success,
