@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:personal_memory_os/core/scroll_guard/scroll_guard.dart';
+import 'package:personal_memory_os/core/scroll_guard/usage_source.dart';
 import 'package:personal_memory_os/core/theme/app_theme.dart';
+import 'package:personal_memory_os/features/settings/scroll_guard_other_apps_tiles.dart';
 
 /// Settings for the Scroll Guard: on/off and when to nudge or call a break.
 class ScrollGuardSettingsSection extends StatelessWidget {
@@ -10,11 +12,21 @@ class ScrollGuardSettingsSection extends StatelessWidget {
   static const _nudgeChoices = [5, 10, 15, 30];
   static const _breakChoices = [10, 20, 30, 45, 60];
 
+  /// No provider (a test, or a platform without one) means other-app watching is simply unavailable.
+  static UsageSource _usageSource(BuildContext context) {
+    try {
+      return context.read<UsageSource>();
+    } on ProviderNotFoundException {
+      return const NoUsageSource();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final guard = context.watch<ScrollGuard>();
     final settings = guard.settings;
     final stats = guard.stats;
+    final source = _usageSource(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,6 +80,7 @@ class ScrollGuardSettingsSection extends StatelessWidget {
                   choices: [for (final m in _breakChoices) if (m > settings.nudgeAfterMinutes) m],
                   onChanged: (m) => guard.updateSettings(settings.copyWith(breakAfterMinutes: m)),
                 ),
+                if (source.supported) ScrollGuardOtherAppsTiles(guard: guard, source: source),
               ],
               if (stats.promptsShown > 0) ...[
                 const Divider(height: 1),
