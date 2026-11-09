@@ -10,7 +10,7 @@ class ScrollGuardSettingsSection extends StatelessWidget {
   const ScrollGuardSettingsSection({super.key});
 
   static const _nudgeChoices = [5, 10, 15, 30];
-  static const _breakChoices = [10, 20, 30, 45, 60];
+  static const _breakChoices = [10, 20, 30, 45];
 
   /// No provider (a test, or a platform without one) means other-app watching is simply unavailable.
   static UsageSource _usageSource(BuildContext context) {
