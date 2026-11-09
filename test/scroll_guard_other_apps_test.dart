@@ -70,6 +70,37 @@ void main() {
       expect(sent.single.$1, 'Time for a break');
     });
 
+    test('the break message may follow a nudge inside the cooldown, but only once', () async {
+      await watcher.check(); // 12 min: nudge
+      clock = clock.add(const Duration(minutes: 10));
+      usage.minutes = 22;
+      expect(await watcher.check(), isTrue);
+      expect(sent.last.$1, 'Time for a break');
+      clock = clock.add(const Duration(minutes: 10));
+      usage.minutes = 30;
+      expect(await watcher.check(), isFalse);
+      expect(sent, hasLength(2));
+    });
+
+    test('two checks at once send one notification', () async {
+      final results = await Future.wait([watcher.check(), watcher.check()]);
+      expect(results.where((r) => r), hasLength(1));
+      expect(sent, hasLength(1));
+      expect(guard.stats.promptsShown, 1);
+    });
+
+    test('an external prompt does not steal credit from a recent in-app prompt', () async {
+      guard.onScroll();
+      for (var i = 0; i < 600; i++) {
+        clock = clock.add(const Duration(seconds: 1));
+        guard.onScroll();
+      }
+      usage.minutes = 40;
+      await watcher.check();
+      guard.onCaptured();
+      expect(guard.stats.minutesReclaimed, 10);
+    });
+
     test('stays quiet below the nudge time', () async {
       usage.minutes = 9;
       expect(await watcher.check(), isFalse);
